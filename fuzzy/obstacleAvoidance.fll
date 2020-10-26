@@ -1,0 +1,44 @@
+#File: ObstacleAvoidance.fll
+Engine: ObstacleAvoidance
+InputVariable: obstacle_range
+  enabled: true
+  range: 0.000 10.000
+  lock-range: false
+  term: far_away Ramp 8.000 10.000
+  term: in_range Ramp 6.000 8.000
+  term: close Ramp 3.000 6.000
+  term: very_close Ramp 0.000 3.000
+InputVariable: obstacle_angle
+  enabled: true
+  range: -2.500 2.500
+  lock-range: false
+  term: left Ramp -2.500 0.000
+  term: right Ramp 0.000 2.500
+OutputVariable: steer
+  enabled: true
+  range: -0.400 0.400
+  lock-range: false
+  aggregation: Maximum
+  defuzzifier: Centroid 100
+  default: nan
+  lock-previous: false
+  term: sharp_left Ramp -0.400 -0.350
+  term: left Ramp -0.350 -0.200
+  term: slight_left Ramp -0.200 0.000
+  term: none Ramp 0.000 0.000
+  term: slight_right Ramp 0.000 0.200
+  term: right Ramp 0.200 0.350
+  term: sharp_right Ramp 0.350 0.400
+RuleBlock: mamdani
+  enabled: true
+  conjunction: none
+  disjunction: none
+  implication: AlgebraicProduct
+  activation: General
+  rule: if obstacle_range is far_away then steer is none
+  rule: if obstacle_range is in_range and obstacle_angle is right then steer is slight_left
+  rule: if obstacle_range is in_range and obstacle_angle is left then steer is slight_right
+  rule: if obstacle_range is close and obstacle_angle is right then steer is left
+  rule: if obstacle_range is close and obstacle_angle is left then steer is right
+  rule: if obstacle_range is very_close and obstacle_angle is right then steer is sharp_left
+  rule: if obstacle_range is very_close and obstacle_angle is left then steer is sharp_right
