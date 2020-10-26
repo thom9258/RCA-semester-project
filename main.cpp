@@ -1,14 +1,15 @@
-#include <fl/Headers.h>
 #include <gazebo/gazebo_client.hh>
 #include <gazebo/msgs/msgs.hh>
 #include <gazebo/transport/transport.hh>
-#include <iostream>
+
 #include <opencv2/opencv.hpp>
+#include <fl/Headers.h>
+
+#include <iostream>
 
 static boost::mutex mutex;
-
 float closestObstacle_range;
-float closestObstalce_angle;
+float closestObstacle_angle;
 
 void statCallback(ConstWorldStatisticsPtr &_msg) {
   (void)_msg;
@@ -21,19 +22,19 @@ void poseCallback(ConstPosesStampedPtr &_msg) {
   // Dump the message contents to stdout.
   //  std::cout << _msg->DebugString();
 
-  for (int i = 0; i < _msg->pose_size(); i++) {
-    if (_msg->pose(i).name() == "pioneer2dx") {
+//  for (int i = 0; i < _msg->pose_size(); i++) {
+//    if (_msg->pose(i).name() == "pioneer2dx") {
 
-      //      std::cout << std::setprecision(2) << std::fixed << std::setw(6)
-      //                << _msg->pose(i).position().x() << std::setw(6)
-      //                << _msg->pose(i).position().y() << std::setw(6)
-      //                << _msg->pose(i).position().z() << std::setw(6)
-      //                << _msg->pose(i).orientation().w() << std::setw(6)
-      //                << _msg->pose(i).orientation().x() << std::setw(6)
-      //                << _msg->pose(i).orientation().y() << std::setw(6)
-      //                << _msg->pose(i).orientation().z() << std::endl;
-    }
-  }
+//      std::cout << std::setprecision(2) << std::fixed << std::setw(6)
+//                << _msg->pose(i).position().x() << std::setw(6)
+//                << _msg->pose(i).position().y() << std::setw(6)
+//                << _msg->pose(i).position().z() << std::setw(6)
+//                << _msg->pose(i).orientation().w() << std::setw(6)
+//                << _msg->pose(i).orientation().x() << std::setw(6)
+//                << _msg->pose(i).orientation().y() << std::setw(6)
+//                << _msg->pose(i).orientation().z() << std::endl;
+//    }
+//  }
 }
 
 void cameraCallback(ConstImageStampedPtr &msg) {
@@ -52,7 +53,11 @@ void cameraCallback(ConstImageStampedPtr &msg) {
 }
 
 void lidarCallback(ConstLaserScanStampedPtr &msg) {
-  //  std::cout << ">> " << msg->DebugString() << std::endl;
+    //reset closest obstacle range and angle, to find new closest obstacle.
+    //closestObstacle_angle = 10000;
+    closestObstacle_range = 10000;
+
+  //std::cout << ">> " << msg->DebugString() << std::endl;
   float angle_min = float(msg->scan().angle_min());
   //  double angle_max = msg->scan().angle_max();
   float angle_increment = float(msg->scan().angle_step());
@@ -60,13 +65,11 @@ void lidarCallback(ConstLaserScanStampedPtr &msg) {
   float range_min = float(msg->scan().range_min());
   float range_max = float(msg->scan().range_max());
 
-  closestObstacle_range = range_max;
-  closestObstalce_angle = 361;
-
   int sec = msg->time().sec();
   int nsec = msg->time().nsec();
 
   int nranges = msg->scan().ranges_size();
+  //std::cout << "nranges: " << nranges << "rangemax: " << range_max << std::endl;
   int nintensities = msg->scan().intensities_size();
 
   assert(nranges == nintensities);
@@ -87,13 +90,12 @@ void lidarCallback(ConstLaserScanStampedPtr &msg) {
                       200.5f - range * px_per_m * std::sin(angle));
     cv::line(im, startpt * 16, endpt * 16, cv::Scalar(255, 255, 255, 255), 1,
              cv::LINE_AA, 4);
-    if (range <= closestObstacle_range) {
-      closestObstacle_range = range;
-      closestObstalce_angle = angle;
+    if(range <= closestObstacle_range){
+        closestObstacle_range = range;
+        closestObstacle_angle = angle;
     }
+    //    std::cout << angle << " " << range << " " << intensity << std::endl;
   }
-  std::cout << "Angle: " << closestObstalce_angle
-            << " Range: " << closestObstacle_range << std::endl;
   cv::circle(im, cv::Point(200, 200), 2, cv::Scalar(0, 0, 255));
   cv::putText(im, std::to_string(sec) + ":" + std::to_string(nsec),
               cv::Point(10, 20), cv::FONT_HERSHEY_PLAIN, 1.0,
@@ -103,11 +105,6 @@ void lidarCallback(ConstLaserScanStampedPtr &msg) {
   cv::imshow("lidar", im);
   mutex.unlock();
 }
-
-/*******************************************************************************
- << VARIABLES HERE >>
-*******************************************************************************/
-const bool manual_control = false;
 
 int main(int _argc, char **_argv) {
   // Load gazebo
@@ -147,7 +144,7 @@ int main(int _argc, char **_argv) {
   const int key_down = 84;
   const int key_right = 83;
   const int key_esc = 27;
-  const int key_space = 32;
+  const int key_space = 32; //Spacebar ASCII
   const int key_w = 119;
   const int key_a = 97;
   const int key_s = 115;
@@ -160,97 +157,131 @@ int main(int _argc, char **_argv) {
   using namespace fl;
 
   Engine *engine = new Engine;
-  engine->setName("ObstacleAvoidance");
+  engine->setName("ObstacleAvoidance_2");
   engine->setDescription("");
 
-  InputVariable *obstacle = new InputVariable;
-  obstacle->setName("obstacle");
-  obstacle->setDescription("");
-  obstacle->setEnabled(true);
-  obstacle->setRange(0.000, 1.000);
-  obstacle->setLockValueInRange(false);
-  obstacle->addTerm(new Ramp("left", 1.000, 0.000));
-  obstacle->addTerm(new Ramp("right", 0.000, 1.000));
-  engine->addInputVariable(obstacle);
+  InputVariable *obstacle_range = new InputVariable;
+  obstacle_range->setName("obstacle_range");
+  obstacle_range->setDescription("");
+  obstacle_range->setEnabled(true);
+  obstacle_range->setRange(0.000, 10.000);
+  obstacle_range->setLockValueInRange(false);
+  obstacle_range->addTerm(new Ramp("far_away", 8.000, 10.000));
+  obstacle_range->addTerm(new Ramp("in_range", 6.000, 8.000));
+  obstacle_range->addTerm(new Ramp("close", 3.000, 6.000));
+  obstacle_range->addTerm(new Ramp("very_close", 0.000, 3.000));
+  engine->addInputVariable(obstacle_range);
 
-  OutputVariable *fl_dir = new OutputVariable;
-  fl_dir->setName("fl_dir");
-  fl_dir->setDescription("");
-  fl_dir->setEnabled(true);
-  fl_dir->setRange(-0.4, 0.400);
-  fl_dir->setLockValueInRange(false);
-  fl_dir->setAggregation(new Maximum);
-  fl_dir->setDefuzzifier(new Centroid(100));
-  fl_dir->setDefaultValue(fl::nan);
-  fl_dir->setLockPreviousValue(false);
-  fl_dir->addTerm(new Ramp("left", 1.000, 0.000));
-  fl_dir->addTerm(new Ramp("right", 0.000, 1.000));
-  engine->addOutputVariable(fl_dir);
+  InputVariable *obstacle_angle = new InputVariable;
+  obstacle_angle->setName("obstacle_angle");
+  obstacle_angle->setDescription("");
+  obstacle_angle->setEnabled(true);
+  obstacle_angle->setRange(-2.500, 2.500);
+  obstacle_angle->setLockValueInRange(false);
+  obstacle_angle->addTerm(new Ramp("left", -2.500, 0.000));
+  obstacle_angle->addTerm(new Ramp("right", 0.000, 2.500));
+  engine->addInputVariable(obstacle_angle);
+
+  OutputVariable *steer = new OutputVariable;
+  steer->setName("steer");
+  steer->setDescription("");
+  steer->setEnabled(true);
+  steer->setRange(-0.400, 0.400);
+  steer->setLockValueInRange(false);
+  steer->setAggregation(new Maximum);
+  steer->setDefuzzifier(new Centroid(100));
+  steer->setDefaultValue(fl::nan);
+  steer->setLockPreviousValue(false);
+  steer->addTerm(new Ramp("sharp_left", -0.400, -0.350));
+  steer->addTerm(new Ramp("left", -0.350, -0.200));
+  steer->addTerm(new Ramp("slight_left", -0.200, 0.000));
+  steer->addTerm(new Ramp("none", 0.000, 0.000));
+  steer->addTerm(new Ramp("slight_right", 0.000, 0.200));
+  steer->addTerm(new Ramp("right", 0.200, 0.350));
+  steer->addTerm(new Ramp("sharp_right", 0.350, 0.400));
+  engine->addOutputVariable(steer);
 
   RuleBlock *mamdani = new RuleBlock;
   mamdani->setName("mamdani");
   mamdani->setDescription("");
   mamdani->setEnabled(true);
-  mamdani->setConjunction(fl::null);
+  mamdani->setConjunction(new AlgebraicProduct);
   mamdani->setDisjunction(fl::null);
   mamdani->setImplication(new AlgebraicProduct);
   mamdani->setActivation(new General);
-  mamdani->addRule(
-      Rule::parse("if obstacle is left then fl_dir is right", engine));
-  mamdani->addRule(
-      Rule::parse("if obstacle is right then fl_dir is left", engine));
+  mamdani->addRule(Rule::parse("if obstacle_range is far_away then steer is none",
+                               engine));
+  mamdani->addRule(Rule::parse("if obstacle_range is in_range and obstacle_angle "
+                               "is right then steer is slight_left",
+                               engine));
+  mamdani->addRule(Rule::parse("if obstacle_range is in_range and obstacle_angle "
+                               "is left then steer is slight_right",
+                               engine));
+  mamdani->addRule(Rule::parse(
+      "if obstacle_range is close and obstacle_angle is right then steer is left",
+      engine));
+  mamdani->addRule(Rule::parse(
+      "if obstacle_range is close and obstacle_angle is left then steer is right",
+      engine));
+  mamdani->addRule(Rule::parse("if obstacle_range is very_close and "
+                               "obstacle_angle is right then steer is sharp_left",
+                               engine));
+  mamdani->addRule(Rule::parse("if obstacle_range is very_close and "
+                               "obstacle_angle is left then steer is sharp_right",
+                               engine));
   engine->addRuleBlock(mamdani);
 
   std::string status;
   if (not engine->isReady(&status))
-    throw Exception("[engine error] engine is not ready:n" + status, FL_AT);
+      throw Exception("[engine error] engine is not ready:n" + status, FL_AT);
   // ---- -----
+
   // Loop
   while (true) {
+      //speed = 0.2;
     gazebo::common::Time::MSleep(10);
 
     mutex.lock();
     int key = cv::waitKey(1);
     mutex.unlock();
-    if (manual_control) {
-      /*************************************************************************
-       * MANUAL CONTROLLER
-       ************************************************************************/
-      if (key == key_esc)
-        break;
 
-      if ((key == key_up || key == key_w) && (speed <= 1.2f))
-        speed += 0.05;
-      else if ((key == key_down || key == key_s) && (speed >= -1.2f))
-        speed -= 0.05;
-      else if ((key == key_right || key == key_d) && (dir <= 0.4f))
-        dir += 0.05;
-      else if ((key == key_left || key == key_a) && (dir >= -0.4f))
-        dir -= 0.05;
-      else if (key == key_space) {
-        speed = 0;
-        dir = 0;
-      } else {
-        // slow down
-        //      speed *= 0.1;
-        //      dir *= 0.1;
-      }
-    } else {
-      /*************************************************************************
-       * FUZZY CONTROLLER
-       ************************************************************************/
-      //      scalar location = obstacle->getMinimum() + (obstacle->range() /
-      //      50);
-      obstacle->setValue(closestObstacle_range);
-      engine->process();
-      // FL_LOG("obstacle.input = " << Op::str(location) <<
-      //    " => " << "steer.output = " << Op::str(fl_dir->getValue()));
+    if (key == key_esc)
+      break;
 
-      dir = fl_dir->getValue();
-      //---------
+    if (((key == key_up)||(key == key_w)) && (speed <= 1.2f))
+      speed += 0.05;
+    else if (((key == key_down)||(key == key_s)) && (speed >= -1.2f))
+      speed -= 0.05;
+    else if (((key == key_right)||(key == key_d)) && (dir <= 0.4f))
+      dir += 0.05;
+    else if (((key == key_left)||(key == key_a)) && (dir >= -0.4f))
+      dir -= 0.05;
+    else if (key == key_space){
+        dir     = 0; // Set angular speed to 0
+        speed   = 0; // Set forward speed to 0
     }
+    else {
+       //slow down
+       //     speed *= 0.1;
+       //     dir *= 0.1;
+    }
+
+    // Fuzzy
+    //scalar location = fl_obstacle->getMinimum() + (fl_obstacle->range() / 50);
+    //fl_obstacle->setValue(location);
+    obstacle_range->setValue(closestObstacle_range);
+    obstacle_angle->setValue(closestObstacle_angle);
+    engine->process();
+    //FL_LOG("obstacle.input = " << Op::str(location) <<
+    //    " => " << "steer.output = " << Op::str(fl_dir->getValue()));
+
+    dir = steer->getValue();
+    //---------
+
     // Generate a pose
     ignition::math::Pose3d pose(double(speed), 0, 0, 0, 0, double(dir));
+
+    //std::cout << "(CO)angle:" << closestObstacle_angle  << " range: " << closestObstacle_range << " fl_steer:" << steer->getValue() << std::endl;
 
     // Convert to a pose message
     gazebo::msgs::Pose msg;
