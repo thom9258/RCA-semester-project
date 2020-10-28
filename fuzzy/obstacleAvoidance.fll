@@ -31,7 +31,7 @@ OutputVariable: steer
   term: sharp_right Ramp 0.350 0.400
 RuleBlock: mamdani
   enabled: true
-  conjunction: none
+  conjunction: AlgebraicProduct
   disjunction: none
   implication: AlgebraicProduct
   activation: General
