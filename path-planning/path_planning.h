@@ -6,13 +6,20 @@
 #include <stdexcept>
 #include <stdio.h>
 
-//  Description:    (jump-tag)!
+//  Description:    A path planning class implementation for the project
+//                  RCA 5.semester.
 //
-//  Developer:      Thomas Alexgaard Jensen
-//  Creation date:  (jump-tag)!
+//  Developer:
+//  Creation date:  281020
 //
-//  Changelog:      DDMMYY  Change
-//                  (jump-tag)!
+//  Changelog:      DDMMYY  XX  Change
+//                  281020  TH  Started construction of the path planning class
+//
+
+//  NOTES:
+//  A Hammersley or Halton sequence might be good for a sampling strategy.
+//  Algorithms such as RRT (Rapidly-exploring Random Tree) with a merge might be
+//  good but also complicated (found on page ~240)
 
 #define DEBUG 1
 #define NODEBUG 0
@@ -54,6 +61,8 @@ public:
 
   void generate_random_nodes() {
     // https://www.rajgunesh.com/resources/downloads/statistics/samplingmethods.pdf
+    // Page 203 (chapter 7.1.1) in the book from Robots in Context
+    // Page 220 --||--
     // 1. Random waypoint assignment algorithm
     // 2. Invalid waypoint elimination
     // 3. Density waypoint elimination
