@@ -1,0 +1,4 @@
+#ifndef HOUGHTRANSFORM_H
+#define HOUGHTRANSFORM_H
+
+#endif // HOUGHTRANSFORM_H
