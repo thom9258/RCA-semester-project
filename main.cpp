@@ -4,6 +4,7 @@
 
 #include <opencv2/opencv.hpp>
 #include <fl/Headers.h>
+#include "HoughTransform/HoughTransform.h"
 
 #include <iostream>
 
@@ -48,7 +49,8 @@ void cameraCallback(ConstImageStampedPtr &msg) {
   cv::cvtColor(im, im, cv::COLOR_RGB2BGR);
 
   mutex.lock();
-  cv::imshow("camera", im);
+  HoughTransform img;
+  cv::imshow("camera", img.mainfunc(im));
   mutex.unlock();
 }
 
