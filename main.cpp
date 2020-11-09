@@ -49,8 +49,9 @@ void cameraCallback(ConstImageStampedPtr &msg) {
   cv::cvtColor(im, im, cv::COLOR_RGB2BGR);
 
   mutex.lock();
+  //Initiate object from the HoughTransform header.
   HoughTransform img;
-  cv::imshow("camera", img.mainfunc(im));
+  cv::imshow("camera", img.circleDetect(im));
   mutex.unlock();
 }
 

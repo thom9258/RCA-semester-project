@@ -10,7 +10,7 @@ class HoughTransform
   public:
     HoughTransform(){};
 
-    cv::Mat mainfunc(cv::Mat img)
+    cv::Mat circleDetect(cv::Mat img)
     {
         // //Read image as gray scale
         //cv::Mat  img = cv::imread("marble.png", cv::IMREAD_COLOR);
