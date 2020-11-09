@@ -156,6 +156,8 @@ int main(int _argc, char **_argv) {
   // ---- Fuzzy Engine ----
   using namespace fl;
 
+  std::cout << "testflag1" << std::endl;
+
   Engine *engine = FllImporter().fromFile("obstacleAvoidance.fll");
 
   InputVariable* obstacle_range = engine->getInputVariable("obstacle_range");
@@ -170,6 +172,7 @@ int main(int _argc, char **_argv) {
 
   // Loop
   while (true) {
+    //std::cout << "testflag - whileloop" << std::endl;
       //speed = 0.2;
     gazebo::common::Time::MSleep(10);
 
@@ -201,6 +204,9 @@ int main(int _argc, char **_argv) {
     // Fuzzy
     //scalar location = fl_obstacle->getMinimum() + (fl_obstacle->range() / 50);
     //fl_obstacle->setValue(location);
+    if (closestObstacle_range > 2000){
+        closestObstacle_range = 2000;
+    }
     obstacle_range->setValue(closestObstacle_range);
     obstacle_angle->setValue(closestObstacle_angle);
     engine->process();
