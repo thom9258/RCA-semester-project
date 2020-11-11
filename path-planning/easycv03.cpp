@@ -74,7 +74,7 @@ cv::Vec3b cv_get_pixel_bgr(cv::Mat _input_image, Point _point)
 //  returns in the format cv::Vec3b [a, b, c]
 //  where white = [255, 255, 255] and black = [0, 0, 0]
 {
-  return _input_image.at<cv::Vec3b>(_point.x, _point.y);
+  return _input_image.at<cv::Vec3b>(_point);
 }
 
 cv::Mat cv_color_pixel(cv::Mat _workspace, cv::Point _pixel_location,
