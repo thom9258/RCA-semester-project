@@ -16,13 +16,18 @@
 int main(int argc, char *argv[]) {
   (void)argc;
   (void)argv;
+
   cv::Mat img = cv::imread("./maps/floor_plan_small.png");
   path_planning path(img, "name");
 
-  int image_scaler = 20;
-  path.show_input_map(image_scaler);
-  path.random_generator_setup();
-  path.generate_random_nodes();
+  //  path.resize_map(6);
+  path.generate_quasirandom_hammersley_nodes(10);
+  path.print_waypoint_nodes();
+  path.remove_unwanted_nodes(DEBUG);
+  path.color_waypoint_nodes();
+  path.print_waypoint_nodes();
+  path.show_map(8);
+
   cv::waitKey();
   return 0;
 }
