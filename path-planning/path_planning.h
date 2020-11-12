@@ -271,8 +271,12 @@ public:
   //----------------------------------------------------------------------------
   // FIND IF A BIRD PATH IS POSSIBLE
   //----------------------------------------------------------------------------
-  bool valid_bird_path(cv::Point _start, cv::Point _goal,
-                       bool _debug = NODEBUG) {
+  int valid_bird_path(cv::Point _start, cv::Point _goal,
+                      bool _debug = NODEBUG) {
+
+    if (_start == _goal) {
+      return -1; /*Disaster*/
+    }
     cv::LineIterator bird_path(node_map, _start, _goal, 8);
 
     if (_debug) {
@@ -280,7 +284,7 @@ public:
     }
     for (int i = 0; i < bird_path.count; i++, ++bird_path) {
       if (cv::Vec3b(*bird_path) == black_pixel) {
-        return false;
+        return 0; /*failure*/
       } else {
         if (_debug) {
           std::cout << i << " " << bird_path.pos() << std::endl
@@ -288,7 +292,7 @@ public:
         }
       }
     }
-    return true;
+    return 1; /*Sucess*/
   }
 
   //----------------------------------------------------------------------------
