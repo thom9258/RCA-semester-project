@@ -13,16 +13,22 @@ int main(int argc, char *argv[]) {
   path_planning path(img, "name");
 
   path.resize_map(6);
-  path.generate_quasirandom_hammersley_nodes(10);
-  //  path.show_map(4, WAIT);
-  //  path.print_waypoint_nodes();
+
+  path.show_map(4, WAIT);
+
+  path.generate_quasirandom_hammersley_nodes(200);
   path.remove_unwanted_nodes(NODEBUG);
-  //  path.color_waypoint_nodes(blue_pixel);
+  path.color_waypoint_nodes(blue_pixel);
+
+  path.show_map(4, WAIT);
+
   path.print_waypoint_nodes();
   path.find_node_map_connections();
   //  path.print_node_map_connections();
   path.draw_node_map_connections(green_pixel);
   path.color_waypoint_nodes(blue_pixel);
+
   path.show_map(4, WAIT);
+
   return 0;
 }

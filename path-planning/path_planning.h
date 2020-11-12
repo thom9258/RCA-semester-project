@@ -25,6 +25,10 @@
 //                              that checks if a node is inside a wall
 //                  111120  TH  Implemented the path_node class
 //                  111120  TH  Implemented the node path-planning algorithms
+//                  121120  TH  Fixed bug where the hammersley algorithm
+//                              sometimes returned negative nodes, and fixed a
+//                              bug where non-random patterns appeared at larger
+//                              node sets
 //
 
 //  NOTES:
@@ -185,13 +189,13 @@ public:
           // calculate the width and height of the current node
           width_position += displacement;
           height_position = (current_node + half_map_width) / _node_number;
-
-          // upscale calculated waypoint to fit node_map and push into
-          // waypoint_nodes vector
-          waypoint_nodes.push_back({int(width_position * map_width),
-                                    int(height_position * map_height)});
-          //          break;
         }
+      }
+      // upscale calculated waypoint to fit node_map and push into
+      // waypoint_nodes vector
+      if (width_position > 0 && height_position > 0) {
+        waypoint_nodes.push_back({int(width_position * map_width),
+                                  int(height_position * map_height)});
       }
     }
   }
