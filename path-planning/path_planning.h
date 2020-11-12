@@ -29,6 +29,8 @@
 //                              sometimes returned negative nodes, and fixed a
 //                              bug where non-random patterns appeared at larger
 //                              node sets
+//                  121120  TH  Fixed some setup stuff and tried out integer
+//                              return instead of void for error returns
 //
 
 //  NOTES:
@@ -46,14 +48,17 @@
 // 4. waypoint path connection
 // 5. path density elimination
 // return waypoint_node vector and image with drawn on waypoints and paths.
+//
+//------------------------------------------------------------------------------
+// brushfire først så ingen noder er for tæt på kanterne
+// brushfire -> super node reduktion
 
 #define DEBUG 1
 #define NODEBUG 0
-
 #define WAIT 1
 #define NOWAIT 0
-
 #define GREYSCALE 0
+#define COLOR 1
 #define GREEN                                                                  \
   { 0, 255, 0 }
 #define BLUE                                                                   \
@@ -71,20 +76,38 @@ const cv::Vec3b red_pixel = RED;
 const cv::Vec3b white_pixel = WHITE;
 const cv::Vec3b black_pixel = BLACK;
 
+////////////////////////////////////////////////////////////////////////////////
+// PATH NODE CLASS
+////////////////////////////////////////////////////////////////////////////////
 class path_node {
 private:
   std::vector<path_node> connector_nodes;
   cv::Point this_position;
 
 public:
+  //----------------------------------------------------------------------------
+  // CONSTRUCTOR
+  //----------------------------------------------------------------------------
   path_node(cv::Point _position) : this_position(_position){};
 
+  //----------------------------------------------------------------------------
+  // GET POSITION OF NODE
+  //----------------------------------------------------------------------------
   cv::Point get_position(void) { return this_position; }
 
+  //----------------------------------------------------------------------------
+  // GET CONNECTOR NODES
+  //----------------------------------------------------------------------------
   std::vector<path_node> get_possible_paths(void) { return connector_nodes; }
 
+  //----------------------------------------------------------------------------
+  // ADD CONNECTOR NODE
+  //----------------------------------------------------------------------------
   void add_possible_path(path_node _node) { connector_nodes.push_back(_node); }
 
+  //----------------------------------------------------------------------------
+  // PRINT ALL DATA INCLUDING CONNECTOR NODE POSITIONS
+  //----------------------------------------------------------------------------
   void print_node_data(void) {
     std::cout << "node position: " << this_position << ", "
               << connector_nodes.size() << " node connections: " << std::endl;
@@ -94,6 +117,9 @@ public:
   }
 };
 
+////////////////////////////////////////////////////////////////////////////////
+// PATH PLANNING CLASS
+////////////////////////////////////////////////////////////////////////////////
 class path_planning {
 private:
   cv::Mat input_map;
@@ -133,12 +159,16 @@ public:
         map_width(_input_map.cols), map_height(_input_map.rows){};
 
   //----------------------------------------------------------------------------
+  // SETUP RANDOM GENERATOR
+  //----------------------------------------------------------------------------
+  void random_generator_setup() { srand(time(NULL)); }
+
+  //----------------------------------------------------------------------------
   // SHOW THE NODE MAP
   //----------------------------------------------------------------------------
-  void show_map(float _scale_size = 1, bool _wait = NOWAIT) {
+  int show_map(float _scale_size = 1, bool _wait = NOWAIT) {
     if (node_map.empty()) {
-      std::cerr << "could not load map" << std::endl;
-      return;
+      return 0;
     }
     cv::Mat view_map = node_map;
     cv::resize(view_map, view_map, cv::Size(), _scale_size, _scale_size,
@@ -148,6 +178,7 @@ public:
     if (_wait) {
       cv::waitKey();
     }
+    return 1;
   }
 
   //----------------------------------------------------------------------------
@@ -159,11 +190,6 @@ public:
     map_width = node_map.cols;
     map_height = node_map.rows;
   }
-
-  //----------------------------------------------------------------------------
-  // SETUP RANDOM GENERATOR
-  //----------------------------------------------------------------------------
-  void random_generator_setup() { srand(time(NULL)); }
 
   //----------------------------------------------------------------------------
   // GENERATE QUASIRANDOM HAMMERSLEY NODES AND SAVE
@@ -241,6 +267,7 @@ public:
       cv::line(node_map, waypoint_nodes[i], waypoint_nodes[i], _color);
     }
   }
+
   //----------------------------------------------------------------------------
   // FIND IF A BIRD PATH IS POSSIBLE
   //----------------------------------------------------------------------------
@@ -281,6 +308,7 @@ public:
       waypoint_path_nodes.push_back(i_current_node);
     }
   }
+
   //----------------------------------------------------------------------------
   // PRINT CONNECTIONS BETWEEN NODES
   //----------------------------------------------------------------------------
@@ -289,6 +317,7 @@ public:
       waypoint_path_nodes[i].print_node_data();
     }
   }
+
   //----------------------------------------------------------------------------
   // DRAW CONNECTIONS BETWEEN NODES = O(N^2) TIME COMPLEXITY
   //----------------------------------------------------------------------------
