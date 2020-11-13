@@ -7,58 +7,56 @@
 #include <opencv2/opencv.hpp>
 #include <stdexcept>
 #include <stdio.h>
+/*
+ * Description:     A path planning class implementation for the project
+ *                  RCA 5.semester.
+ *
+ * Developer:
+ * Creation date:   281020
+ *
+ * Changelog:       DDMMYY  XX  Change
+ *                  281020  TH  Started construction of the path planning class
+ *              pre 111120  TH  Implemented the quasi-random node selection
+ *                              algorithm and started a node validation
+ *                              algorithm
+ *                  111120  TH  Removed a bug in get_pixel_bgr function that
+ *                              returns invalid colors
+ *                  111120  TH  Implemented the node validation algorithm part
+ *                              that checks if a node is inside a wall
+ *                  111120  TH  Implemented the path_node class
+ *                  111120  TH  Implemented the node path-planning algorithms
+ *                  121120  TH  Fixed bug where the hammersley algorithm
+ *                              sometimes returned negative nodes, and fixed a
+ *                              bug where non-random patterns appeared at larger
+ *                              node sets
+ *                  121120  TH  Fixed some setup stuff and tried out integer
+ *                              return instead of void for error returns
+ *
+ *
+ * NOTES:
+ * A Hammersley or Halton sequence might be good for a sampling strategy.
+ * Algorithms such as RRT (Rapidly-exploring Random Tree) with a merge might be
+ * good but also complicated (found on page ~240)
+ * https://www.researchgate.net/publication/244441430_Sampling_with_Hammersley_and_Halton_Points
+ *
+ * https://www.rajgunesh.com/resources/downloads/statistics/samplingmethods.pdf
+ * Page 203 (chapter 7.1.1) in the book from Robots in Context
+ * Page 220 --||--
+ * 1. Random waypoint assignment algorithm
+ * 2. Invalid waypoint elimination
+ * 3. Density waypoint elimination
+ * 4. waypoint path connection
+ * 5. path density elimination
+ * return waypoint_node vector and image with drawn on waypoints and paths.
+ *
+ *------------------------------------------------------------------------------
+ * brushfire først så ingen noder er for tæt på kanterne
+ * brushfire -> super node reduktion
+ */
 
-//  Description:    A path planning class implementation for the project
-//                  RCA 5.semester.
-//
-//  Developer:
-//  Creation date:  281020
-//
-//  Changelog:      DDMMYY  XX  Change
-//                  281020  TH  Started construction of the path planning class
-//              pre 111120  TH  Implemented the quasi-random node selection
-//                              algorithm and started a node validation
-//                              algorithm
-//                  111120  TH  Removed a bug in get_pixel_bgr function that
-//                              returns invalid colors
-//                  111120  TH  Implemented the node validation algorithm part
-//                              that checks if a node is inside a wall
-//                  111120  TH  Implemented the path_node class
-//                  111120  TH  Implemented the node path-planning algorithms
-//                  121120  TH  Fixed bug where the hammersley algorithm
-//                              sometimes returned negative nodes, and fixed a
-//                              bug where non-random patterns appeared at larger
-//                              node sets
-//                  121120  TH  Fixed some setup stuff and tried out integer
-//                              return instead of void for error returns
-//
-
-//  NOTES:
-//  A Hammersley or Halton sequence might be good for a sampling strategy.
-//  Algorithms such as RRT (Rapidly-exploring Random Tree) with a merge might be
-//  good but also complicated (found on page ~240)
-//  https://www.researchgate.net/publication/244441430_Sampling_with_Hammersley_and_Halton_Points
-
-// https://www.rajgunesh.com/resources/downloads/statistics/samplingmethods.pdf
-// Page 203 (chapter 7.1.1) in the book from Robots in Context
-// Page 220 --||--
-// 1. Random waypoint assignment algorithm
-// 2. Invalid waypoint elimination
-// 3. Density waypoint elimination
-// 4. waypoint path connection
-// 5. path density elimination
-// return waypoint_node vector and image with drawn on waypoints and paths.
-//
-//------------------------------------------------------------------------------
-// brushfire først så ingen noder er for tæt på kanterne
-// brushfire -> super node reduktion
-
-#define DEBUG 1
-#define NODEBUG 0
-#define WAIT 1
-#define NOWAIT 0
-#define GREYSCALE 0
-#define COLOR 1
+enum DODEBUG { NODEBUG = 0, DEBUG = 1 };
+enum DOWAIT { NOWAIT = 0, WAIT = 1 };
+enum WHATCOLOR { GREYSCALE = 0, COLOR = 1 };
 #define GREEN                                                                  \
   { 0, 255, 0 }
 #define BLUE                                                                   \
@@ -201,24 +199,23 @@ public:
     float width_position, height_position;
     int current_node, current_node_expansion;
 
-    // generate n nodes for the map
+    /*generate n nodes for the map*/
     for (current_node = 0; current_node <= _node_number; current_node++) {
       width_position = 0;
       displacement = max_map_width;
-      // calculate the displacement of the node
+
+      /*calculate the displacement of the node*/
       for (current_node_expansion = current_node;
            displacement *= half_map_width; current_node_expansion >>= 1) {
 
-        // check if current_node_expansion is odd
-        //        if ((current_node_expansion % 2) == 1) {
+        /*check if current_node_expansion is odd*/
         if (current_node_expansion & 1) {
-          // calculate the width and height of the current node
+          /*calculate the width and height of the current node*/
           width_position += displacement;
           height_position = (current_node + half_map_width) / _node_number;
         }
       }
-      // upscale calculated waypoint to fit node_map and push into
-      // waypoint_nodes vector
+      /*upscale calculated waypoint to fit node_map and place*/
       if (width_position > 0 && height_position > 0) {
         waypoint_nodes.push_back({int(width_position * map_width),
                                   int(height_position * map_height)});
@@ -234,14 +231,11 @@ public:
     for (size_t i = 0; i < waypoint_nodes.size(); i++) {
 
       if (get_pixel_bgr(waypoint_nodes[i]) != black_pixel) {
-        //        waypoint_nodes.erase(waypoint_nodes.begin() + i);
         valid_waypoint_nodes.push_back(waypoint_nodes[i]);
       } else {
         if (_debug) {
           std::cout << "removed node: " << i << " " << waypoint_nodes[i]
                     << std::endl;
-          //          cv::line(node_map, waypoint_nodes[i], waypoint_nodes[i],
-          //          red_pixel);
         }
       }
     }
@@ -292,7 +286,7 @@ public:
         }
       }
     }
-    return 1; /*Sucess*/
+    return 1; /*Success*/
   }
 
   //----------------------------------------------------------------------------
