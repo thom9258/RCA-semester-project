@@ -50,8 +50,7 @@ void cameraCallback(ConstImageStampedPtr &msg) {
 
   mutex.lock();
   //Initiate object from the HoughTransform header.
-  HoughTransform img;
-  cv::imshow("camera", img.circleDetect(im));
+  cv::imshow("camera", HoughTransform::circleDetect(im));
   mutex.unlock();
 }
 
