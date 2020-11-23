@@ -5,6 +5,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
+#include <queue>
 #include <stdexcept>
 #include <stdio.h>
 /*
@@ -19,7 +20,7 @@
  *              pre 111120  TH  Implemented the quasi-random node selection
  *                              algorithm and started a node validation
  *                              algorithm
- *                  111120  TH  Removed a bug in get_pixel_bgr function that
+ *                  111120  TH  Removed a bug in get_pixel_color function that
  *                              returns invalid colors
  *                  111120  TH  Implemented the node validation algorithm part
  *                              that checks if a node is inside a wall
@@ -118,6 +119,19 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 // PATH PLANNING CLASS
 ////////////////////////////////////////////////////////////////////////////////
+class brushfire_pixel {
+public:
+  cv::Point position;
+  int generation_index;
+  //----------------------------------------------------------------------------
+  // CONSTRUCTOR
+  //----------------------------------------------------------------------------
+  brushfire_pixel(cv::Point _position, int _generation_index)
+      : position(_position), generation_index(_generation_index){};
+};
+////////////////////////////////////////////////////////////////////////////////
+// PATH PLANNING CLASS
+////////////////////////////////////////////////////////////////////////////////
 class path_planning {
 private:
   cv::Mat input_map;
@@ -138,14 +152,24 @@ private:
     }
     return result;
   }
+
   //----------------------------------------------------------------------------
-  // GET PIXEL VALUE ARRANGED IN BLUE GREEN RED ORDER
+  // GET PIXEL VALUE ARRANGED IN [BLUE GREEN RED] ORDER
   //----------------------------------------------------------------------------
-  cv::Vec3b get_pixel_bgr(cv::Point _point)
-  //  returns in the format cv::Vec3b [a, b, c]
-  //  where white = [255, 255, 255] and black = [0, 0, 0] ect.
-  {
+  cv::Vec3b get_pixel_color(cv::Point _point) {
+    /*white = [255, 255, 255], black = [0, 0, 0]*/
     return node_map.at<cv::Vec3b>(_point);
+  }
+
+  //----------------------------------------------------------------------------
+  // CHECK IF A POSITION IS VALID INSIDE MAP
+  //----------------------------------------------------------------------------
+  bool on_board(cv::Point next_position) {
+    if (next_position.x < 0 || next_position.x > map_width ||
+        next_position.y < 0 || next_position.y > map_height) {
+      return true;
+    }
+    return false;
   }
 
 public:
@@ -224,13 +248,68 @@ public:
   }
 
   //----------------------------------------------------------------------------
+  // PAD WALLS WITH A BRUSHFIRE LIKE ALGORITHM
+  //----------------------------------------------------------------------------
+  void pad_walls(int _padding_pixels = 1, int _debug = NODEBUG) {
+    if (_debug) {
+      std::cout << "PAD WALLS STARTED" << std::endl;
+    }
+    /*The possible moves that the padding algorithm needs to take*/
+    std::vector<cv::Point> movement_grid = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    std::queue<brushfire_pixel *> brushfire_queue;
+
+    /*Initialization*/
+    for (int i = 0; i < map_width; i++) {
+      for (int i = 0; i < map_height; i++) {
+        if (_debug) {
+          std::cout << "current pixel color: "
+                    << get_pixel_color({map_width, map_height}) << std::endl;
+        }
+        if (get_pixel_color({map_width, map_height}) == black_pixel) {
+          if (_debug) {
+            std::cout << "pushed back pixel at: " << map_width << " "
+                      << map_height << std::endl;
+          }
+          brushfire_queue.push(new brushfire_pixel({map_width, map_height}, 0));
+        }
+      }
+    }
+    /*Guard clause*/
+    if (brushfire_queue.empty()) {
+      return;
+    }
+    /*Brushfire*/
+    brushfire_pixel *current_pixel;
+    while (!brushfire_queue.empty()) {
+      current_pixel = brushfire_queue.front();
+      brushfire_queue.pop();
+      if (current_pixel->generation_index >= _padding_pixels) {
+        break;
+      }
+      for (size_t i = 0; i < movement_grid.size(); i++) {
+        cv::Point next_position = {
+            current_pixel->position.x + movement_grid[i].x,
+            current_pixel->position.y + movement_grid[i].y};
+        /*Valid position*/
+        if (on_board(next_position)) {
+          if (get_pixel_color(next_position) == black_pixel) {
+            cv::line(node_map, next_position, next_position, black_pixel);
+            brushfire_queue.push(new brushfire_pixel(
+                next_position, current_pixel->generation_index + 1));
+          }
+        }
+      }
+    }
+  }
+
+  //----------------------------------------------------------------------------
   // REMOVE UNWANTED AND INVALID NODES FROM THE NODE LIST
   //----------------------------------------------------------------------------
   void remove_unwanted_nodes(bool _debug = NODEBUG) {
     std::vector<cv::Point> valid_waypoint_nodes = {};
     for (size_t i = 0; i < waypoint_nodes.size(); i++) {
 
-      if (get_pixel_bgr(waypoint_nodes[i]) != black_pixel) {
+      if (get_pixel_color(waypoint_nodes[i]) != black_pixel) {
         valid_waypoint_nodes.push_back(waypoint_nodes[i]);
       } else {
         if (_debug) {
@@ -282,7 +361,7 @@ public:
       } else {
         if (_debug) {
           std::cout << i << " " << bird_path.pos() << std::endl
-                    << " " << get_pixel_bgr(bird_path.pos()) << std::endl;
+                    << " " << get_pixel_color(bird_path.pos()) << std::endl;
         }
       }
     }
