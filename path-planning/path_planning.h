@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <iostream>
+#include <opencv2/core/matx.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -12,7 +13,6 @@
  * Description:     A path planning class implementation for the project
  *                  RCA 5.semester.
  *
- * Developer:
  * Creation date:   281020
  *
  * Changelog:       DDMMYY  XX  Change
@@ -32,6 +32,7 @@
  *                              node sets
  *                  121120  TH  Fixed some setup stuff and tried out integer
  *                              return instead of void for error returns
+ *                  231120  TH/ER  Started brushfire padding algorithm
  *
  *
  * NOTES:
@@ -55,8 +56,8 @@
  * brushfire -> super node reduktion
  */
 
-enum DODEBUG { NODEBUG = 0, DEBUG = 1 };
-enum DOWAIT { NOWAIT = 0, WAIT = 1 };
+enum DODEBUG { NO_DEBUG = 0, DEBUG = 1 };
+enum DOWAIT { NO_WAIT = 0, WAIT = 1 };
 enum WHATCOLOR { GREYSCALE = 0, COLOR = 1 };
 #define GREEN                                                                  \
   { 0, 255, 0 }
@@ -68,19 +69,22 @@ enum WHATCOLOR { GREYSCALE = 0, COLOR = 1 };
   { 255, 255, 255 }
 #define BLACK                                                                  \
   { 0, 0, 0 }
+#define GREY                                                                   \
+  { 169, 169, 169 }
 
 const cv::Vec3b green_pixel = GREEN;
 const cv::Vec3b blue_pixel = BLUE;
 const cv::Vec3b red_pixel = RED;
 const cv::Vec3b white_pixel = WHITE;
 const cv::Vec3b black_pixel = BLACK;
+const cv::Vec3b grey_pixel = GREY;
 
 ////////////////////////////////////////////////////////////////////////////////
 // PATH NODE CLASS
 ////////////////////////////////////////////////////////////////////////////////
 class path_node {
 private:
-  std::vector<path_node> connector_nodes;
+  std::vector<cv::Point> connector_nodes;
   cv::Point this_position;
 
 public:
@@ -97,12 +101,12 @@ public:
   //----------------------------------------------------------------------------
   // GET CONNECTOR NODES
   //----------------------------------------------------------------------------
-  std::vector<path_node> get_possible_paths(void) { return connector_nodes; }
+  std::vector<cv::Point> get_possible_paths(void) { return connector_nodes; }
 
   //----------------------------------------------------------------------------
   // ADD CONNECTOR NODE
   //----------------------------------------------------------------------------
-  void add_possible_path(path_node _node) { connector_nodes.push_back(_node); }
+  void add_possible_path(cv::Point _node) { connector_nodes.push_back(_node); }
 
   //----------------------------------------------------------------------------
   // PRINT ALL DATA INCLUDING CONNECTOR NODE POSITIONS
@@ -111,7 +115,7 @@ public:
     std::cout << "node position: " << this_position << ", "
               << connector_nodes.size() << " node connections: " << std::endl;
     for (size_t i = 0; i < connector_nodes.size(); i++) {
-      std::cout << connector_nodes[i].get_position() << std::endl;
+      std::cout << connector_nodes[i] << std::endl;
     }
   }
 };
@@ -136,16 +140,18 @@ class path_planning {
 private:
   cv::Mat input_map;
   cv::Mat node_map;
+  cv::Mat eroded_map;
+
   std::string map_name;
   std::vector<cv::Point> waypoint_nodes;
   std::vector<path_node> waypoint_path_nodes;
-  int map_width;
-  int map_height;
+  std::vector<path_node> room_nodes;
+  int scaling_factor = 1;
 
   //----------------------------------------------------------------------------
   // GENERATE RANDOM POINTS
   //----------------------------------------------------------------------------
-  cv::Point generate_random_point(bool _debug = NODEBUG) {
+  cv::Point generate_random_point(bool _debug = NO_DEBUG) {
     cv::Point result = {(rand() % map_width), (rand() % map_height + 1)};
     if (_debug) {
       std::cout << "Generated point: " << result << std::endl;
@@ -162,6 +168,14 @@ private:
   }
 
   //----------------------------------------------------------------------------
+  // GET PIXEL VALUE OF HE ERODED MAP ARRANGED IN [BLUE GREEN RED] ORDER
+  //----------------------------------------------------------------------------
+  cv::Vec3b get_eroded_pixel_color(cv::Point _point) {
+    /*white = [255, 255, 255], black = [0, 0, 0]*/
+    return eroded_map.at<cv::Vec3b>(_point);
+  }
+
+  //----------------------------------------------------------------------------
   // CHECK IF A POSITION IS VALID INSIDE MAP
   //----------------------------------------------------------------------------
   bool on_board(cv::Point next_position) {
@@ -173,12 +187,15 @@ private:
   }
 
 public:
+  int map_width;
+  int map_height;
   //----------------------------------------------------------------------------
   // CONSTRUCTOR
   //----------------------------------------------------------------------------
   path_planning(cv::Mat _input_map, std::string _name = "")
-      : input_map(_input_map), node_map(_input_map), map_name(_name),
-        map_width(_input_map.cols), map_height(_input_map.rows){};
+      : input_map(_input_map), node_map(_input_map), eroded_map(_input_map),
+        map_name(_name), map_width(_input_map.cols),
+        map_height(_input_map.rows){};
 
   //----------------------------------------------------------------------------
   // SETUP RANDOM GENERATOR
@@ -188,7 +205,7 @@ public:
   //----------------------------------------------------------------------------
   // SHOW THE NODE MAP
   //----------------------------------------------------------------------------
-  int show_map(float _scale_size = 1, bool _wait = NOWAIT) {
+  int show_map(float _scale_size = 1, bool _wait = NO_WAIT) {
     if (node_map.empty()) {
       return 0;
     }
@@ -211,6 +228,7 @@ public:
                cv::INTER_NEAREST);
     map_width = node_map.cols;
     map_height = node_map.rows;
+    scaling_factor = _scale_size;
   }
 
   //----------------------------------------------------------------------------
@@ -220,7 +238,7 @@ public:
     const int max_map_width = 1;
     const float half_map_width = 0.5;
     float displacement;
-    float width_position, height_position;
+    float width_position = 0, height_position = 0;
     int current_node, current_node_expansion;
 
     /*generate n nodes for the map*/
@@ -248,9 +266,20 @@ public:
   }
 
   //----------------------------------------------------------------------------
+  // ERODE MAP
+  //----------------------------------------------------------------------------
+  void erode_map(int _erosion_count = 0) {
+    eroded_map = node_map.clone();
+    cv::Mat structuring_element(5, 5, CV_8U, cv::Scalar(1));
+    for (int i = 0; i < _erosion_count; i++) {
+      cv::erode(eroded_map, eroded_map, structuring_element);
+    }
+  }
+
+  //----------------------------------------------------------------------------
   // PAD WALLS WITH A BRUSHFIRE LIKE ALGORITHM
   //----------------------------------------------------------------------------
-  void pad_walls(int _padding_pixels = 1, int _debug = NODEBUG) {
+  void pad_walls(int _padding_pixels = 1, int _debug = NO_DEBUG) {
     if (_debug) {
       std::cout << "PAD WALLS STARTED" << std::endl;
     }
@@ -278,6 +307,9 @@ public:
     if (brushfire_queue.empty()) {
       return;
     }
+
+    return;
+
     /*Brushfire*/
     brushfire_pixel *current_pixel;
     while (!brushfire_queue.empty()) {
@@ -303,13 +335,47 @@ public:
   }
 
   //----------------------------------------------------------------------------
+  // ADD ROOM NODES
+  //----------------------------------------------------------------------------
+  void add_room_nodes(std::vector<cv::Point> _room_node_coordinates) {
+    for (size_t i = 0; i < _room_node_coordinates.size(); i++) {
+      cv::Point upscaled_coordinates = {
+          _room_node_coordinates[i].x * scaling_factor,
+          _room_node_coordinates[i].y * scaling_factor};
+      path_node current_node = path_node(upscaled_coordinates);
+      for (size_t j = 0; j < waypoint_nodes.size(); j++) {
+        if (valid_bird_path(current_node.get_position(), waypoint_nodes[j])) {
+          current_node.add_possible_path(waypoint_nodes[j]);
+        }
+      }
+      room_nodes.push_back(current_node);
+    }
+  }
+  /*
+     for (size_t i = 0; i < waypoint_nodes.size(); i++) {
+      path_node i_current_node(waypoint_nodes[i]);
+
+      for (size_t j = 0; j < waypoint_nodes.size(); j++) {
+        path_node j_current_node(waypoint_nodes[j]);
+        if (valid_bird_path(waypoint_nodes[i], waypoint_nodes[j]) &&
+            i_current_node.get_position() != j_current_node.get_position()) {
+
+          i_current_node.add_possible_path(j_current_node.get_position());
+        }
+      }
+
+      waypoint_path_nodes.push_back(i_current_node);
+    }
+
+    */
+  //----------------------------------------------------------------------------
   // REMOVE UNWANTED AND INVALID NODES FROM THE NODE LIST
   //----------------------------------------------------------------------------
-  void remove_unwanted_nodes(bool _debug = NODEBUG) {
+  void remove_unwanted_nodes(bool _debug = NO_DEBUG) {
     std::vector<cv::Point> valid_waypoint_nodes = {};
     for (size_t i = 0; i < waypoint_nodes.size(); i++) {
 
-      if (get_pixel_color(waypoint_nodes[i]) != black_pixel) {
+      if (get_eroded_pixel_color(waypoint_nodes[i]) != black_pixel) {
         valid_waypoint_nodes.push_back(waypoint_nodes[i]);
       } else {
         if (_debug) {
@@ -339,18 +405,21 @@ public:
     for (size_t i = 0; i < waypoint_nodes.size(); i++) {
       cv::line(node_map, waypoint_nodes[i], waypoint_nodes[i], _color);
     }
+    for (size_t i = 0; i < room_nodes.size(); i++) {
+      cv::circle(node_map, room_nodes[i].get_position(), 10, GREEN, cv::FILLED);
+    }
   }
 
   //----------------------------------------------------------------------------
   // FIND IF A BIRD PATH IS POSSIBLE
   //----------------------------------------------------------------------------
   int valid_bird_path(cv::Point _start, cv::Point _goal,
-                      bool _debug = NODEBUG) {
+                      bool _debug = NO_DEBUG) {
 
     if (_start == _goal) {
       return -1; /*Disaster*/
     }
-    cv::LineIterator bird_path(node_map, _start, _goal, 8);
+    cv::LineIterator bird_path(eroded_map, _start, _goal, 8);
 
     if (_debug) {
       std::cout << "amount of pixels in line: " << bird_path.count << std::endl;
@@ -374,14 +443,16 @@ public:
   void find_node_map_connections(void) {
     for (size_t i = 0; i < waypoint_nodes.size(); i++) {
       path_node i_current_node(waypoint_nodes[i]);
+
       for (size_t j = 0; j < waypoint_nodes.size(); j++) {
         path_node j_current_node(waypoint_nodes[j]);
         if (valid_bird_path(waypoint_nodes[i], waypoint_nodes[j]) &&
             i_current_node.get_position() != j_current_node.get_position()) {
 
-          i_current_node.add_possible_path(j_current_node);
+          i_current_node.add_possible_path(j_current_node.get_position());
         }
       }
+
       waypoint_path_nodes.push_back(i_current_node);
     }
   }
@@ -404,8 +475,7 @@ public:
       size_t connections = waypoint_path_nodes[i].get_possible_paths().size();
       for (size_t j = 0; j < connections; j++) {
         cv::line(node_map, waypoint_path_nodes[i].get_position(),
-                 waypoint_path_nodes[i].get_possible_paths()[j].get_position(),
-                 _color);
+                 waypoint_path_nodes[i].get_possible_paths()[j], _color);
       }
     }
   }
