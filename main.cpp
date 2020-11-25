@@ -56,7 +56,7 @@ void cameraCallback(ConstImageStampedPtr &msg) {
 
 void lidarCallback(ConstLaserScanStampedPtr &msg) {
     //reset closest obstacle range and angle, to find new closest obstacle.
-    //closestObstacle_angle = 10000;
+    closestObstacle_angle = 0;
     closestObstacle_range = 10000;
 
   //std::cout << ">> " << msg->DebugString() << std::endl;
@@ -203,7 +203,7 @@ int main(int _argc, char **_argv) {
        //     dir *= 0.1;
     }
 
-    // Fuzzy
+    // ----------------- Fuzzy --------------------
     //scalar location = fl_obstacle->getMinimum() + (fl_obstacle->range() / 50);
     //fl_obstacle->setValue(location);
     if (closestObstacle_range > 2000){
