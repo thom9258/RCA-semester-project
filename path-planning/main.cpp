@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
 
   path.erode_map(3);
   //  path.show_map(map_show_scalar, WAIT);
-  path.generate_quasirandom_hammersley_nodes(80);
+  path.generate_quasirandom_hammersley_nodes(1000);
   path.add_room_nodes(room_nodes);
   std::cout << "ADD ROOM NODES" << std::endl;
   path.remove_unwanted_nodes();
@@ -42,8 +42,10 @@ int main(int argc, char *argv[]) {
   path.draw_node_map_connections(red_pixel);
   path.color_waypoint_nodes(blue_pixel);
   std::vector<cv::Point> a_star_path =
-      path.a_star_path_finder(room_nodes[0], room_nodes[10], DEBUG);
-  path.show_map(map_show_scalar, WAIT);
+      path.a_star_path_finder(room_nodes[3], room_nodes[16], DEBUG);
 
+  path.draw_a_star_path(a_star_path, blue_pixel);
+  path.show_map(map_show_scalar, WAIT);
+  cv::waitKey();
   return 0;
 }

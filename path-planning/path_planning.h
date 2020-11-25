@@ -345,6 +345,14 @@ public:
       cv::Point upscaled_coordinates = {
           _room_node_coordinates[i].x * scaling_factor,
           _room_node_coordinates[i].y * scaling_factor};
+
+      waypoint_nodes.push_back(upscaled_coordinates);
+    }
+    for (size_t i = 0; i < _room_node_coordinates.size(); i++) {
+
+      cv::Point upscaled_coordinates = {
+          _room_node_coordinates[i].x * scaling_factor,
+          _room_node_coordinates[i].y * scaling_factor};
       path_node current_node = path_node(upscaled_coordinates);
       for (size_t j = 0; j < waypoint_nodes.size(); j++) {
         if (valid_bird_path(current_node.get_position(), waypoint_nodes[j])) {
@@ -487,11 +495,19 @@ public:
   //----------------------------------------------------------------------------
   // GET NODE FROM COORDINATE
   //----------------------------------------------------------------------------
-  path_node get_node_from_coordinate(cv::Point _coordinate) {
+  path_node get_node_from_coordinate(cv::Point _coordinate,
+                                     int _debug = DEBUG) {
     for (size_t i = 0; i < waypoint_path_nodes.size(); i++) {
       if (waypoint_path_nodes[i].get_position() == _coordinate) {
+        if (_debug) {
+          std::cout << "returns node at: "
+                    << waypoint_path_nodes[i].get_position() << std::endl;
+        }
         return waypoint_path_nodes[i];
       }
+    }
+    if (_debug) {
+      std::cout << "NO NODE FOUND -> RETURNS INVALID NODE" << std::endl;
     }
     return path_node({-1, -1});
   }
@@ -506,6 +522,35 @@ public:
   }
 
   //----------------------------------------------------------------------------
+  // GET NODE FROM LIST
+  //----------------------------------------------------------------------------
+  path_node get_node_from_closed_list(std::vector<path_node> closed_list,
+                                      cv::Point _coordinate,
+                                      int _debug = DEBUG) {
+    const float flt_max = 9999.9f;
+    for (size_t i = 0; i < closed_list.size(); i++) {
+      if (closed_list[i].get_position() == _coordinate) {
+        if (_debug) {
+          std::cout << "returns node at: " << closed_list[i].get_position()
+                    << std::endl;
+        }
+        return closed_list[i];
+      }
+    }
+    if (_debug) {
+      std::cout << "NO NODE FOUND -> RETURNS INVALID NODE" << std::endl;
+    }
+    /*
+     * Invalid nodes are intentionally handeled by the backtracker, because not
+     * all nodes are in the closed_list. Their g_cose are also set to a high
+     * value to make sure they dont interfere with the backtracker.
+     * */
+    path_node invalid_node = path_node({-1, -1});
+    invalid_node.g_cost = flt_max;
+    return invalid_node;
+  }
+
+  //----------------------------------------------------------------------------
   // A* PATHFINDING
   //----------------------------------------------------------------------------
   std::vector<cv::Point> a_star_path_finder(cv::Point _start, cv::Point _goal,
@@ -515,6 +560,13 @@ public:
     std::vector<cv::Point> result = {};
     std::vector<path_node> open_list;
     std::vector<path_node> closed_list;
+    _start = {_start.x * scaling_factor, _start.y * scaling_factor};
+    _goal = {_goal.x * scaling_factor, _goal.y * scaling_factor};
+    if (_debug) {
+      std::cout << "upscaling factor: " << scaling_factor
+                << " start: " << _start << " end: " << _goal << std::endl;
+    }
+
     open_list.push_back(get_node_from_coordinate(_start));
 
     /*Test all possible paths*/
@@ -527,6 +579,9 @@ public:
         if (open_list[i].f_cost <= lowest_f) {
           index = i;
           lowest_f = open_list[i].f_cost;
+          if (_debug) {
+            std::cout << "while loop iteration" << std::endl;
+          }
         }
       }
 
@@ -535,6 +590,10 @@ public:
       closed_list.push_back(open_list[index]);
       open_list.erase(open_list.begin() + index);
 
+      if (_debug) {
+        std::cout << "current node found" << std::endl;
+      }
+
       /*Exit condition*/
       if (current_node.get_position() == _goal) {
 
@@ -542,36 +601,60 @@ public:
         path_node current_valid_node = current_node;
 
         /*find the path that has the lowest g_cost*/
-        while (current_valid_node.get_position() == _start) {
-          float lowest_g = flt_max;
-          int valid_index = 0;
+        while (current_valid_node.get_position() != _start) {
 
           /*find the child with the smallest g_cost and make it the
            * current_valid_node*/
+          float lowest_g = current_node.g_cost;
+          int valid_index = -1;
           for (size_t i = 0; i < current_valid_node.get_possible_paths().size();
                i++) {
-            if (get_node_from_coordinate(
-                    current_valid_node.get_possible_paths()[i])
+            if (get_node_from_closed_list(
+                    closed_list, current_valid_node.get_possible_paths()[i])
                     .g_cost < lowest_g) {
-              lowest_g = get_node_from_coordinate(
-                             current_valid_node.get_possible_paths()[i])
-                             .g_cost;
+              if (_debug) {
+                std::cout << "current g_cost is lower than lowest_g"
+                          << std::endl
+                          << "current g_cost = " << lowest_g << std::endl;
+              }
+
+              lowest_g =
+                  get_node_from_closed_list(
+                      closed_list, current_valid_node.get_possible_paths()[i])
+                      .g_cost;
               valid_index = i;
             }
           }
 
           /*add the child with the smallest g_cost to the resulting path*/
           result.push_back(current_valid_node.get_position());
-          current_valid_node = get_node_from_coordinate(
-              current_valid_node.get_possible_paths()[index]);
+          if (_debug) {
+            std::cout << "added node to backtracking path: "
+                      << current_valid_node.get_position()
+                      << " g_cost: " << current_valid_node.g_cost << std::endl;
+          }
+          current_valid_node = get_node_from_closed_list(
+              closed_list,
+              current_valid_node.get_possible_paths()[valid_index]);
         }
 
         /*add the starting position*/
         result.push_back(current_valid_node.get_position());
+        if (_debug) {
+          std::cout << "A* PATH FOUND" << std::endl;
+          for (size_t i = 0; i < result.size(); i++) {
+            std::cout << result[i] << std::endl;
+          }
+        }
+        return result;
       }
 
       /*Generate children for the current_node*/
       for (size_t i = 0; i < current_node.get_possible_paths().size(); i++) {
+
+        if (_debug) {
+          std::cout << "child iteration " << i << std::endl;
+        }
 
         /*does the child already exist?
           -> has the child generated new children?*/
@@ -582,6 +665,11 @@ public:
             is_in_closed_list = true;
           }
         }
+
+        if (_debug && is_in_closed_list) {
+          std::cout << "child exists in closed_list" << std::endl;
+        }
+
         /*if the child does not exist in closed_list*/
         if (!is_in_closed_list) {
 
@@ -603,6 +691,16 @@ public:
               if (child.g_cost < open_list[j].g_cost) {
                 open_list.push_back(child);
                 open_list.erase(open_list.begin() + j);
+                if (_debug) {
+                  std::cout << "child exists in open_list and child does not "
+                            << std::endl;
+                }
+              } else {
+                if (_debug) {
+                  std::cout << "child exists in open_list and child has higher "
+                               "g_cost than the already existing child"
+                            << std::endl;
+                }
               }
             }
           }
@@ -610,6 +708,11 @@ public:
           /*new child isint inside open_list*/
           if (!is_in_open_list) {
 
+            if (_debug) {
+              std::cout << "child does not exist in open_list -> push it onto "
+                           "open_list"
+                        << std::endl;
+            }
             /*add new child*/
             open_list.push_back(child);
           } else {
@@ -617,6 +720,20 @@ public:
         }
       }
     }
+    if (_debug) {
+      std::cout << "NO PATH FOUND" << std::endl;
+    }
     return result;
+  }
+
+  //----------------------------------------------------------------------------
+  // A* PATH DRAWER
+  //----------------------------------------------------------------------------
+  void draw_a_star_path(std::vector<cv::Point> a_star_path,
+                        cv::Vec3b _color = red_pixel) {
+    for (size_t i = 1; i < a_star_path.size(); i++) {
+      cv::line(node_map, a_star_path[i], a_star_path[i - 1], _color, 4);
+    }
+    return;
   }
 };
