@@ -42,6 +42,9 @@ class HoughTransform
             circle( img, center, 1, cv::Scalar(0,100,100), 3, cv::LINE_AA);
             // circle outline
             int radius = c[2];
+            float relation_constant = 4.8*30;
+            double distance_to_marble = relation_constant/radius;
+            std::cout << "Distance: " << distance_to_marble << std::endl;
             circle( img, center, radius, cv::Scalar(255,0,255), 3, cv::LINE_AA);
         }
 
