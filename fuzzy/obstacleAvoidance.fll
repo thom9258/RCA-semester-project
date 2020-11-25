@@ -10,9 +10,9 @@ InputVariable: obstacle_angle
   enabled: true
   range: -2.500 2.500
   lock-range: false
-  term: left Ramp -2.500 -0.200
-  term: center Ramp -0.200 0.200
-  term: right Ramp 0.200 2.500
+  term: right Ramp -2.500 -0.200
+  term: center Triangle -0.500 0.000 0.500
+  term: left Ramp 2.500 0.200
 OutputVariable: steer
   enabled: true
   range: -0.800 0.800
@@ -21,12 +21,12 @@ OutputVariable: steer
   defuzzifier: Centroid 100
   default: nan
   lock-previous: false
-  term: left Ramp -0.800 -0.00
-  term: center Ramp 0.000 0.00
-  term: right Ramp 0.000 0.800
+  term: left Ramp -0.800 0.000
+  term: center Ramp 0.000 0.000
+  term: right Ramp 0.800 0.000
 RuleBlock: mamdani
   enabled: true
-  conjunction: none
+  conjunction: AlgebraicProduct
   disjunction: none
   implication: AlgebraicProduct
   activation: General
