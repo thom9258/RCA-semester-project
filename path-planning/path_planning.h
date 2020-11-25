@@ -88,6 +88,9 @@ private:
   cv::Point this_position;
 
 public:
+  float g_cost = 0.0f;
+  float h_cost = 0.0f;
+  float f_cost = 0.0f;
   //----------------------------------------------------------------------------
   // CONSTRUCTOR
   //----------------------------------------------------------------------------
@@ -349,6 +352,7 @@ public:
         }
       }
       room_nodes.push_back(current_node);
+      waypoint_path_nodes.push_back(current_node);
     }
   }
   /*
@@ -478,5 +482,141 @@ public:
                  waypoint_path_nodes[i].get_possible_paths()[j], _color);
       }
     }
+  }
+
+  //----------------------------------------------------------------------------
+  // GET NODE FROM COORDINATE
+  //----------------------------------------------------------------------------
+  path_node get_node_from_coordinate(cv::Point _coordinate) {
+    for (size_t i = 0; i < waypoint_path_nodes.size(); i++) {
+      if (waypoint_path_nodes[i].get_position() == _coordinate) {
+        return waypoint_path_nodes[i];
+      }
+    }
+    return path_node({-1, -1});
+  }
+
+  //----------------------------------------------------------------------------
+  // HEURISTIC DISTANCE BETWEEN 2 NODES
+  //----------------------------------------------------------------------------
+  float heuristic(path_node _a, path_node _b) {
+    /*Manhatten Distance*/
+    return std::abs((_a.get_position().x - _b.get_position().x)) +
+           std::abs((_a.get_position().y - _b.get_position().y));
+  }
+
+  //----------------------------------------------------------------------------
+  // A* PATHFINDING
+  //----------------------------------------------------------------------------
+  std::vector<cv::Point> a_star_path_finder(cv::Point _start, cv::Point _goal,
+                                            int _debug = NO_DEBUG) {
+    /*Initialization*/
+    const float flt_max = 9999.9f;
+    std::vector<cv::Point> result = {};
+    std::vector<path_node> open_list;
+    std::vector<path_node> closed_list;
+    open_list.push_back(get_node_from_coordinate(_start));
+
+    /*Test all possible paths*/
+    while (!open_list.empty()) {
+
+      /*Find lowest f_cost node in open_list*/
+      int index = 0;
+      float lowest_f = flt_max;
+      for (size_t i = 0; i < open_list.size(); i++) {
+        if (open_list[i].f_cost <= lowest_f) {
+          index = i;
+          lowest_f = open_list[i].f_cost;
+        }
+      }
+
+      /*Make current node the lowest f_cost node in open_list*/
+      path_node current_node = open_list[index];
+      closed_list.push_back(open_list[index]);
+      open_list.erase(open_list.begin() + index);
+
+      /*Exit condition*/
+      if (current_node.get_position() == _goal) {
+
+        /*Backtrack to get path*/
+        path_node current_valid_node = current_node;
+
+        /*find the path that has the lowest g_cost*/
+        while (current_valid_node.get_position() == _start) {
+          float lowest_g = flt_max;
+          int valid_index = 0;
+
+          /*find the child with the smallest g_cost and make it the
+           * current_valid_node*/
+          for (size_t i = 0; i < current_valid_node.get_possible_paths().size();
+               i++) {
+            if (get_node_from_coordinate(
+                    current_valid_node.get_possible_paths()[i])
+                    .g_cost < lowest_g) {
+              lowest_g = get_node_from_coordinate(
+                             current_valid_node.get_possible_paths()[i])
+                             .g_cost;
+              valid_index = i;
+            }
+          }
+
+          /*add the child with the smallest g_cost to the resulting path*/
+          result.push_back(current_valid_node.get_position());
+          current_valid_node = get_node_from_coordinate(
+              current_valid_node.get_possible_paths()[index]);
+        }
+
+        /*add the starting position*/
+        result.push_back(current_valid_node.get_position());
+      }
+
+      /*Generate children for the current_node*/
+      for (size_t i = 0; i < current_node.get_possible_paths().size(); i++) {
+
+        /*does the child already exist?
+          -> has the child generated new children?*/
+        bool is_in_closed_list = false;
+        for (size_t j = 0; j < closed_list.size(); j++) {
+          if (current_node.get_possible_paths()[i] ==
+              closed_list[j].get_position()) {
+            is_in_closed_list = true;
+          }
+        }
+        /*if the child does not exist in closed_list*/
+        if (!is_in_closed_list) {
+
+          /*generate new child*/
+          path_node child =
+              get_node_from_coordinate(current_node.get_possible_paths()[i]);
+          child.g_cost = current_node.g_cost + heuristic(child, current_node);
+          child.h_cost = heuristic(child, get_node_from_coordinate(_goal));
+          child.f_cost = child.g_cost + child.h_cost;
+
+          /*is the new child already added to open_list*/
+          bool is_in_open_list = false;
+          for (size_t j = 0; j < open_list.size(); j++) {
+            if (child.get_position() == open_list[j].get_position()) {
+              is_in_open_list = true;
+
+              /*if the new child cost is better than the already existing
+               * child -> replace it*/
+              if (child.g_cost < open_list[j].g_cost) {
+                open_list.push_back(child);
+                open_list.erase(open_list.begin() + j);
+              }
+            }
+          }
+
+          /*new child isint inside open_list*/
+          if (!is_in_open_list) {
+
+            /*add new child*/
+            open_list.push_back(child);
+          } else {
+          }
+        }
+      }
+    }
+    return result;
   }
 };
