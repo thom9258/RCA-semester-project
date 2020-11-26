@@ -711,4 +711,27 @@ public:
   // STATIC ALL IN ONE FUNCTION THAT FINDS A PATH ON A IMAGE AND RETURNS A SET
   // OF COORDINATES CALCULATED BY AN A* ALGORITHM
   //----------------------------------------------------------------------------
+  static std::vector<cv::Point>
+  calculate_a_star_path(cv::Mat _image, std::vector<cv::Point> room_nodes,
+                        int hammersley_node_amount, int map_resize_scalar,
+                        int map_erosion, float map_show_scalar) {
+    path_planning path(_image);
+
+    path.resize_map(map_resize_scalar);
+    path.show_map(map_show_scalar, NO_WAIT);
+    path.erode_map(map_erosion);
+    path.generate_quasirandom_hammersley_nodes(hammersley_node_amount);
+    path.add_room_nodes(room_nodes);
+    path.remove_unwanted_nodes();
+    path.color_waypoint_nodes(blue_pixel);
+    path.find_node_map_connections();
+    path.draw_node_map_connections(red_pixel);
+    path.color_waypoint_nodes(blue_pixel);
+    std::vector<cv::Point> a_star_path =
+        path.a_star_path_finder(room_nodes[3], room_nodes[16]);
+
+    path.draw_a_star_path(a_star_path, blue_pixel);
+    path.show_map(map_show_scalar, WAIT);
+    return a_star_path;
+  }
 };
