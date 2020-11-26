@@ -32,32 +32,18 @@
  *                              node sets
  *                  121120  TH  Fixed some setup stuff and tried out integer
  *                              return instead of void for error returns
- *                  231120  TH/ER  Started brushfire padding algorithm
  *
+ *                  231120  TH/ER   Started brushfire padding algorithm
+ *                  261120  TH/ER   Finished the A* pathfinding algorithm
+ *                  271120  TH/ER   Recommented A* code and made some functions
+ *                                  private. Fixed bug that didnt allow code to
+ *                                  execute without using cv::imshow() first
+ *                                  Not really a bug "fix" but a workaround.
  *
- * NOTES:
- * A Hammersley or Halton sequence might be good for a sampling strategy.
- * Algorithms such as RRT (Rapidly-exploring Random Tree) with a merge might be
- * good but also complicated (found on page ~240)
- * https://www.researchgate.net/publication/244441430_Sampling_with_Hammersley_and_Halton_Points
- *
- * https://www.rajgunesh.com/resources/downloads/statistics/samplingmethods.pdf
- * Page 203 (chapter 7.1.1) in the book from Robots in Context
- * Page 220 --||--
- * 1. Random waypoint assignment algorithm
- * 2. Invalid waypoint elimination
- * 3. Density waypoint elimination
- * 4. waypoint path connection
- * 5. path density elimination
- * return waypoint_node vector and image with drawn on waypoints and paths.
- *
- *------------------------------------------------------------------------------
- * brushfire først så ingen noder er for tæt på kanterne
- * brushfire -> super node reduktion
  */
 
-enum DODEBUG { NO_DEBUG = 0, DEBUG = 1 };
-enum DOWAIT { NO_WAIT = 0, WAIT = 1 };
+enum DODEBUG { NO_DEBUG = 0, NODEBUG = 0, DEBUG = 1 };
+enum DOWAIT { NO_WAIT = 0, NOWAIT = 0, WAIT = 1 };
 enum WHATCOLOR { GREYSCALE = 0, COLOR = 1 };
 #define GREEN                                                                  \
   { 0, 255, 0 }
@@ -88,6 +74,7 @@ private:
   cv::Point this_position;
 
 public:
+  /*costs for path_finding*/
   float g_cost = 0.0f;
   float h_cost = 0.0f;
   float f_cost = 0.0f;
@@ -189,6 +176,64 @@ private:
     return false;
   }
 
+  //----------------------------------------------------------------------------
+  // GET NODE FROM COORDINATE
+  //----------------------------------------------------------------------------
+  path_node get_node_from_coordinate(cv::Point _coordinate,
+                                     int _debug = NO_DEBUG) {
+    for (size_t i = 0; i < waypoint_path_nodes.size(); i++) {
+      if (waypoint_path_nodes[i].get_position() == _coordinate) {
+        if (_debug) {
+          std::cout << "returns node at: "
+                    << waypoint_path_nodes[i].get_position() << std::endl;
+        }
+        return waypoint_path_nodes[i];
+      }
+    }
+    if (_debug) {
+      std::cout << "NO NODE FOUND -> RETURNS INVALID NODE" << std::endl;
+    }
+    return path_node({-1, -1});
+  }
+
+  //----------------------------------------------------------------------------
+  // HEURISTIC DISTANCE BETWEEN 2 NODES
+  //----------------------------------------------------------------------------
+  float heuristic(path_node _a, path_node _b) {
+    /*Manhatten Distance*/
+    return std::abs((_a.get_position().x - _b.get_position().x)) +
+           std::abs((_a.get_position().y - _b.get_position().y));
+  }
+
+  //----------------------------------------------------------------------------
+  // GET NODE FROM LIST
+  //----------------------------------------------------------------------------
+  path_node get_node_from_closed_list(std::vector<path_node> closed_list,
+                                      cv::Point _coordinate,
+                                      int _debug = NO_DEBUG) {
+    const float flt_max = 9999.9f;
+    for (size_t i = 0; i < closed_list.size(); i++) {
+      if (closed_list[i].get_position() == _coordinate) {
+        if (_debug) {
+          std::cout << "returns node at: " << closed_list[i].get_position()
+                    << std::endl;
+        }
+        return closed_list[i];
+      }
+    }
+    if (_debug) {
+      std::cout << "NO NODE FOUND -> RETURNS INVALID NODE" << std::endl;
+    }
+    /*
+     * Invalid nodes are intentionally handeled by the backtracker, because not
+     * all nodes are in the closed_list. Their g_cose are also set to a high
+     * value to make sure they dont interfere with the backtracker.
+     * */
+    path_node invalid_node = path_node({-1, -1});
+    invalid_node.g_cost = flt_max;
+    return invalid_node;
+  }
+
 public:
   int map_width;
   int map_height;
@@ -208,11 +253,13 @@ public:
   //----------------------------------------------------------------------------
   // SHOW THE NODE MAP
   //----------------------------------------------------------------------------
-  int show_map(float _scale_size = 1, bool _wait = NO_WAIT) {
+  void show_map(float _scale_size = 1, bool _wait = NO_WAIT) {
+    /*guard clause*/
     if (node_map.empty()) {
-      return 0;
+      return;
     }
-    cv::Mat view_map = node_map;
+    /*clone map insead of using implicit pointers*/
+    cv::Mat view_map = node_map.clone();
     cv::resize(view_map, view_map, cv::Size(), _scale_size, _scale_size,
                cv::INTER_NEAREST);
     cv::namedWindow(map_name);
@@ -220,7 +267,6 @@ public:
     if (_wait) {
       cv::waitKey();
     }
-    return 1;
   }
 
   //----------------------------------------------------------------------------
@@ -363,23 +409,7 @@ public:
       waypoint_path_nodes.push_back(current_node);
     }
   }
-  /*
-     for (size_t i = 0; i < waypoint_nodes.size(); i++) {
-      path_node i_current_node(waypoint_nodes[i]);
 
-      for (size_t j = 0; j < waypoint_nodes.size(); j++) {
-        path_node j_current_node(waypoint_nodes[j]);
-        if (valid_bird_path(waypoint_nodes[i], waypoint_nodes[j]) &&
-            i_current_node.get_position() != j_current_node.get_position()) {
-
-          i_current_node.add_possible_path(j_current_node.get_position());
-        }
-      }
-
-      waypoint_path_nodes.push_back(i_current_node);
-    }
-
-    */
   //----------------------------------------------------------------------------
   // REMOVE UNWANTED AND INVALID NODES FROM THE NODE LIST
   //----------------------------------------------------------------------------
@@ -491,65 +521,6 @@ public:
       }
     }
   }
-
-  //----------------------------------------------------------------------------
-  // GET NODE FROM COORDINATE
-  //----------------------------------------------------------------------------
-  path_node get_node_from_coordinate(cv::Point _coordinate,
-                                     int _debug = DEBUG) {
-    for (size_t i = 0; i < waypoint_path_nodes.size(); i++) {
-      if (waypoint_path_nodes[i].get_position() == _coordinate) {
-        if (_debug) {
-          std::cout << "returns node at: "
-                    << waypoint_path_nodes[i].get_position() << std::endl;
-        }
-        return waypoint_path_nodes[i];
-      }
-    }
-    if (_debug) {
-      std::cout << "NO NODE FOUND -> RETURNS INVALID NODE" << std::endl;
-    }
-    return path_node({-1, -1});
-  }
-
-  //----------------------------------------------------------------------------
-  // HEURISTIC DISTANCE BETWEEN 2 NODES
-  //----------------------------------------------------------------------------
-  float heuristic(path_node _a, path_node _b) {
-    /*Manhatten Distance*/
-    return std::abs((_a.get_position().x - _b.get_position().x)) +
-           std::abs((_a.get_position().y - _b.get_position().y));
-  }
-
-  //----------------------------------------------------------------------------
-  // GET NODE FROM LIST
-  //----------------------------------------------------------------------------
-  path_node get_node_from_closed_list(std::vector<path_node> closed_list,
-                                      cv::Point _coordinate,
-                                      int _debug = DEBUG) {
-    const float flt_max = 9999.9f;
-    for (size_t i = 0; i < closed_list.size(); i++) {
-      if (closed_list[i].get_position() == _coordinate) {
-        if (_debug) {
-          std::cout << "returns node at: " << closed_list[i].get_position()
-                    << std::endl;
-        }
-        return closed_list[i];
-      }
-    }
-    if (_debug) {
-      std::cout << "NO NODE FOUND -> RETURNS INVALID NODE" << std::endl;
-    }
-    /*
-     * Invalid nodes are intentionally handeled by the backtracker, because not
-     * all nodes are in the closed_list. Their g_cose are also set to a high
-     * value to make sure they dont interfere with the backtracker.
-     * */
-    path_node invalid_node = path_node({-1, -1});
-    invalid_node.g_cost = flt_max;
-    return invalid_node;
-  }
-
   //----------------------------------------------------------------------------
   // A* PATHFINDING
   //----------------------------------------------------------------------------
@@ -657,7 +628,7 @@ public:
         }
 
         /*does the child already exist?
-          -> has the child generated new children?*/
+         * -> has the child generated new children?*/
         bool is_in_closed_list = false;
         for (size_t j = 0; j < closed_list.size(); j++) {
           if (current_node.get_possible_paths()[i] ==
@@ -736,4 +707,8 @@ public:
     }
     return;
   }
+  //----------------------------------------------------------------------------
+  // STATIC ALL IN ONE FUNCTION THAT FINDS A PATH ON A IMAGE AND RETURNS A SET
+  // OF COORDINATES CALCULATED BY AN A* ALGORITHM
+  //----------------------------------------------------------------------------
 };
