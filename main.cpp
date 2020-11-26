@@ -2,9 +2,10 @@
 #include <gazebo/msgs/msgs.hh>
 #include <gazebo/transport/transport.hh>
 
-#include <opencv2/opencv.hpp>
-#include <fl/Headers.h>
 #include "HoughTransform/HoughTransform.h"
+#include "path-planning/localization.h"
+#include <fl/Headers.h>
+#include <opencv2/opencv.hpp>
 
 #include <iostream>
 
@@ -23,19 +24,19 @@ void poseCallback(ConstPosesStampedPtr &_msg) {
   // Dump the message contents to stdout.
   //  std::cout << _msg->DebugString();
 
-//  for (int i = 0; i < _msg->pose_size(); i++) {
-//    if (_msg->pose(i).name() == "pioneer2dx") {
+  //  for (int i = 0; i < _msg->pose_size(); i++) {
+  //    if (_msg->pose(i).name() == "pioneer2dx") {
 
-//      std::cout << std::setprecision(2) << std::fixed << std::setw(6)
-//                << _msg->pose(i).position().x() << std::setw(6)
-//                << _msg->pose(i).position().y() << std::setw(6)
-//                << _msg->pose(i).position().z() << std::setw(6)
-//                << _msg->pose(i).orientation().w() << std::setw(6)
-//                << _msg->pose(i).orientation().x() << std::setw(6)
-//                << _msg->pose(i).orientation().y() << std::setw(6)
-//                << _msg->pose(i).orientation().z() << std::endl;
-//    }
-//  }
+  //      std::cout << std::setprecision(2) << std::fixed << std::setw(6)
+  //                << _msg->pose(i).position().x() << std::setw(6)
+  //                << _msg->pose(i).position().y() << std::setw(6)
+  //                << _msg->pose(i).position().z() << std::setw(6)
+  //                << _msg->pose(i).orientation().w() << std::setw(6)
+  //                << _msg->pose(i).orientation().x() << std::setw(6)
+  //                << _msg->pose(i).orientation().y() << std::setw(6)
+  //                << _msg->pose(i).orientation().z() << std::endl;
+  //    }
+  //  }
 }
 
 void cameraCallback(ConstImageStampedPtr &msg) {
@@ -49,17 +50,17 @@ void cameraCallback(ConstImageStampedPtr &msg) {
   cv::cvtColor(im, im, cv::COLOR_RGB2BGR);
 
   mutex.lock();
-  //Initiate object from the HoughTransform header.
+  // Initiate object from the HoughTransform header.
   cv::imshow("camera", HoughTransform::circleDetect(im));
   mutex.unlock();
 }
 
 void lidarCallback(ConstLaserScanStampedPtr &msg) {
-    //reset closest obstacle range and angle, to find new closest obstacle.
-    closestObstacle_angle = 0;
-    closestObstacle_range = 10000;
+  // reset closest obstacle range and angle, to find new closest obstacle.
+  closestObstacle_angle = 0;
+  closestObstacle_range = 10000;
 
-  //std::cout << ">> " << msg->DebugString() << std::endl;
+  // std::cout << ">> " << msg->DebugString() << std::endl;
   float angle_min = float(msg->scan().angle_min());
   //  double angle_max = msg->scan().angle_max();
   float angle_increment = float(msg->scan().angle_step());
@@ -71,7 +72,8 @@ void lidarCallback(ConstLaserScanStampedPtr &msg) {
   int nsec = msg->time().nsec();
 
   int nranges = msg->scan().ranges_size();
-  //std::cout << "nranges: " << nranges << "rangemax: " << range_max << std::endl;
+  // std::cout << "nranges: " << nranges << "rangemax: " << range_max <<
+  // std::endl;
   int nintensities = msg->scan().intensities_size();
 
   assert(nranges == nintensities);
@@ -92,9 +94,9 @@ void lidarCallback(ConstLaserScanStampedPtr &msg) {
                       200.5f - range * px_per_m * std::sin(angle));
     cv::line(im, startpt * 16, endpt * 16, cv::Scalar(255, 255, 255, 255), 1,
              cv::LINE_AA, 4);
-    if(range <= closestObstacle_range){
-        closestObstacle_range = range;
-        closestObstacle_angle = angle;
+    if (range <= closestObstacle_range) {
+      closestObstacle_range = range;
+      closestObstacle_angle = angle;
     }
     //    std::cout << angle << " " << range << " " << intensity << std::endl;
   }
@@ -146,7 +148,7 @@ int main(int _argc, char **_argv) {
   const int key_down = 84;
   const int key_right = 83;
   const int key_esc = 27;
-  const int key_space = 32; //Spacebar ASCII
+  const int key_space = 32; // Spacebar ASCII
   const int key_w = 119;
   const int key_a = 97;
   const int key_s = 115;
@@ -162,20 +164,22 @@ int main(int _argc, char **_argv) {
 
   Engine *engine = FllImporter().fromFile("obstacleAvoidance.fll");
 
-  InputVariable* obstacle_range = engine->getInputVariable("obstacle_range");
-  InputVariable* obstacle_angle = engine->getInputVariable("obstacle_angle");
+  InputVariable *obstacle_range = engine->getInputVariable("obstacle_range");
+  InputVariable *obstacle_angle = engine->getInputVariable("obstacle_angle");
 
-  OutputVariable* steer = engine->getOutputVariable("steer");
+  OutputVariable *steer = engine->getOutputVariable("steer");
 
   std::string status;
   if (not engine->isReady(&status))
-      throw Exception("[engine error] engine is not ready:n" + status, FL_AT);
+    throw Exception("[engine error] engine is not ready:n" + status, FL_AT);
   // ---- -----
+
+  localization lc = localization({0, 0});
 
   // Loop
   while (true) {
-    //std::cout << "testflag - whileloop" << std::endl;
-      //speed = 0.2;
+    // std::cout << "testflag - whileloop" << std::endl;
+    // speed = 0.2;
     gazebo::common::Time::MSleep(10);
 
     mutex.lock();
@@ -185,43 +189,45 @@ int main(int _argc, char **_argv) {
     if (key == key_esc)
       break;
 
-    if (((key == key_up)||(key == key_w)) && (speed <= 1.2f))
+    if (((key == key_up) || (key == key_w)) && (speed <= 1.2f))
       speed += 0.05;
-    else if (((key == key_down)||(key == key_s)) && (speed >= -1.2f))
+    else if (((key == key_down) || (key == key_s)) && (speed >= -1.2f))
       speed -= 0.05;
-    else if (((key == key_right)||(key == key_d)) && (dir <= 0.4f))
+    else if (((key == key_right) || (key == key_d)) && (dir <= 0.4f))
       dir += 0.05;
-    else if (((key == key_left)||(key == key_a)) && (dir >= -0.4f))
+    else if (((key == key_left) || (key == key_a)) && (dir >= -0.4f))
       dir -= 0.05;
-    else if (key == key_space){
-        dir     = 0; // Set angular speed to 0
-        speed   = 0; // Set forward speed to 0
-    }
-    else {
-       //slow down
-       //     speed *= 0.1;
-       //     dir *= 0.1;
+    else if (key == key_space) {
+      dir = 0;   // Set angular speed to 0
+      speed = 0; // Set forward speed to 0
+    } else {
+      // slow down
+      //     speed *= 0.1;
+      //     dir *= 0.1;
     }
 
+    lc.update_dead_reckoning(speed, dir, 1);
+
     // ----------------- Fuzzy --------------------
-    //scalar location = fl_obstacle->getMinimum() + (fl_obstacle->range() / 50);
-    //fl_obstacle->setValue(location);
-    if (closestObstacle_range > 2000){
-        closestObstacle_range = 2000;
+    // scalar location = fl_obstacle->getMinimum() + (fl_obstacle->range() /
+    // 50); fl_obstacle->setValue(location);
+    if (closestObstacle_range > 2000) {
+      closestObstacle_range = 2000;
     }
     obstacle_range->setValue(closestObstacle_range);
     obstacle_angle->setValue(closestObstacle_angle);
     engine->process();
-    //FL_LOG("obstacle.input = " << Op::str(location) <<
+    // FL_LOG("obstacle.input = " << Op::str(location) <<
     //    " => " << "steer.output = " << Op::str(fl_dir->getValue()));
 
-    dir = steer->getValue();
+    //    dir = steer->getValue();
     //---------
 
     // Generate a pose
     ignition::math::Pose3d pose(double(speed), 0, 0, 0, 0, double(dir));
 
-    //std::cout << "(CO)angle:" << closestObstacle_angle  << " range: " << closestObstacle_range << " fl_steer:" << steer->getValue() << std::endl;
+    // std::cout << "(CO)angle:" << closestObstacle_angle  << " range: " <<
+    // closestObstacle_range << " fl_steer:" << steer->getValue() << std::endl;
 
     // Convert to a pose message
     gazebo::msgs::Pose msg;
