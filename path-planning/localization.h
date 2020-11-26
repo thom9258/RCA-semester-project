@@ -21,10 +21,14 @@
  *
  * Changelog:       DDMMYY  XX        Change
  *                  261120  TH/MI/ER  Implemented Dead reckoning
- *
  */
 #define PI 3.14f
 
+/*******************************************************************************
+ *******************************************************************************
+ * LOCALIZATION CLASS
+ *******************************************************************************
+ ******************************************************************************/
 class localization {
 private:
   cv::Point2f x_vector = {0, 0};
@@ -40,12 +44,11 @@ public:
   localization(cv::Point _x_start_position = {0, 0})
       : x_vector(_x_start_position){};
 
+  /*****************************************************************************
+   * CALCULATE DEAD RECKONING
+   ****************************************************************************/
   void update_dead_reckoning(float _velocity, float _direction,
                              int _debug = NO_DEBUG) {
-    if (_debug) {
-      std::cout << "velocity = " << _velocity << " rotation = " << _direction
-                << std::endl;
-    }
     previous_distance = distance_traveled;
     distance_traveled = previous_velocity + _velocity;
 
@@ -64,6 +67,14 @@ public:
         sin(rotation) * (distance_traveled - previous_distance)};
 
     x_vector = {x_vector.x + rotation_vector.x, x_vector.y + rotation_vector.y};
+    if (_debug) {
+      std::cout << "velocity: " << _velocity << " direction: " << _direction
+                << std::endl
+                << x_vector << " " << rotation;
+    }
   }
+  /*****************************************************************************
+   * RETURN X VECTOR FOR DEBUGGING
+   ****************************************************************************/
   cv::Point2f get_x_vector(void) { return x_vector; }
 };
