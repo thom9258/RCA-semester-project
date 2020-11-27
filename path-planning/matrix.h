@@ -1,5 +1,7 @@
 #pragma once
 #include <cmath>
+#include <iostream>
+#include <path_planning.h>
 #include <stdexcept>
 #include <stdio.h>
 #include <vector>
@@ -165,7 +167,10 @@ public:
    ****************************************************************************/
   static std::vector<std::vector<double>>
   multiply(std::vector<std::vector<double>> a,
-           std::vector<std::vector<double>> b) {
+           std::vector<std::vector<double>> b, int _debug = NO_DEBUG) {
+    if (_debug) {
+      std::cout << "multiply start" << std::endl;
+    }
     const int n = a.size();
     const int m = a[0].size();
     const int p = b[0].size();
@@ -178,6 +183,9 @@ public:
         }
       }
     }
+    if (_debug) {
+      std::cout << "multiply end" << std::endl;
+    }
     return c;
   }
 
@@ -185,13 +193,21 @@ public:
    * ADD MATRICES
    ****************************************************************************/
   static std::vector<std::vector<double>>
-  add(std::vector<std::vector<double>> A, std::vector<std::vector<double>> B) {
+  add(std::vector<std::vector<double>> A, std::vector<std::vector<double>> B,
+      int _debug = NO_DEBUG) {
+    if (_debug) {
+      std::cout << "add start" << std::endl;
+    }
     std::vector<std::vector<double>> C(A.size());
 
     for (size_t i = 0; i < A.size(); i++) {
       C[i].resize(A[i].size());
       for (size_t j = 0; j < A[i].size(); j++) {
         C[i][j] = A[i][j] + B[i][j];
+        if (_debug) {
+          std::cout << "changed" << i << " " << j << " to " << A[i][j] + B[i][j]
+                    << std::endl;
+        }
       }
     }
 

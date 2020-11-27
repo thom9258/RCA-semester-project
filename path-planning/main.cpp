@@ -39,13 +39,12 @@ int main(int argc, char *argv[]) {
     path.draw_a_star_path(a_star_path, blue_pixel);
     path.show_map(map_show_scalar, WAIT);
   }
-
   /****************************************************************************/
   cv::Point start_position = {0, 0};
   localization dr = localization(start_position);
-  for (size_t i = 0; i < 50; i++) {
+  dr.max_error = 0.0f;
+  for (size_t i = 0; i < 20; i++) {
     dr.update_dead_reckoning(1, 0.2, DEBUG);
-    std::cout << dr.get_x_vector() << std::endl;
   }
   return 0;
 }

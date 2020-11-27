@@ -4,6 +4,7 @@
 #include <bits/c++config.h>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <iostream>
 #include <math.h>
 #include <opencv2/core/matx.hpp>
@@ -12,6 +13,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <queue>
+#include <random>
 #include <stdexcept>
 #include <stdio.h>
 /*
@@ -28,12 +30,142 @@
 
 /*******************************************************************************
  *******************************************************************************
+ * KALMAN FILTER CLASS
+ *******************************************************************************
+ ******************************************************************************/
+class kalman_filter {
+private:
+  //  const double h_measurement_map_scalar = 1.0f;
+  //  unsigned long long timestep = 0;
+
+  std::vector<std::vector<double>> q_estimated_covariance = {
+      {10, 0, 0}, {0, 10, 0}, {0, 0, 10}};
+  std::vector<std::vector<double>> A = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  std::vector<std::vector<double>> B = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  std::vector<std::vector<double>> C = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  std::vector<std::vector<double>> D = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+
+public:
+  std::vector<std::vector<double>> p_error_covariance = {
+      {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+  std::vector<std::vector<double>> k_kalman_gain = {
+      {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+  std::vector<std::vector<double>> x_hat_estimated_state = {};     /*x_k*/
+  std::vector<std::vector<double>> new_x_hat_estimated_state = {}; /*x_{k+1}*/
+  std::vector<std::vector<double>> r_noise_covariance = {
+      {40.0f, 0, 0}, {0, 40.0f, 0}, {0, 0, 40.0f}};
+  /*****************************************************************************
+   * CONSTRUCTOR
+   ****************************************************************************/
+  kalman_filter(){};
+  kalman_filter(std::vector<std::vector<double>> _q,
+                std::vector<std::vector<double>> _p,
+                std::vector<std::vector<double>> _x,
+                std::vector<std::vector<double>> _k,
+                std::vector<std::vector<double>> _r)
+      : q_estimated_covariance(_q), p_error_covariance(_p), k_kalman_gain(_k),
+        x_hat_estimated_state(_x), new_x_hat_estimated_state(_x),
+        r_noise_covariance(_r){};
+
+  /*****************************************************************************
+   * UPDATE KALMAN FILTER
+   ****************************************************************************/
+  kalman_filter copy() { return *this; };
+  /*****************************************************************************
+   * UPDATE KALMAN FILTER
+   ****************************************************************************/
+  void calculate_kalman(std::vector<std::vector<double>> _u_input,
+                        std::vector<std::vector<double>> _y_result,
+                        int _debug = NO_DEBUG) {
+
+    if (_debug) {
+      std::cout << "calculate kalman start" << std::endl;
+    }
+    /*Prediction*/
+    /*
+     * x_{k+1} = A * x_k + B*u
+     * */
+    new_x_hat_estimated_state =
+        matrix::add((matrix::multiply(A, x_hat_estimated_state)),
+                    (matrix::multiply(B, _u_input)));
+    if (_debug) {
+      std::cout << "estimated new x hat" << std::endl;
+    }
+    /*
+     * P_{k+1|k} = A*P_{k|k}*transpose(A) + Q
+     * */
+    std::vector<std::vector<double>> AP =
+        matrix::multiply(A, p_error_covariance);
+    std::vector<std::vector<double>> AT = matrix::transpose(A);
+    p_error_covariance =
+        matrix::add((matrix::multiply(AP, AT)), q_estimated_covariance);
+
+    if (_debug) {
+      std::cout << "calculated P_{k+1|k}" << std::endl;
+    }
+    /*
+     * K = P_{k+1|k}*transpose(C) * inverse(C*P*transpose(C) + R)
+     * */
+    std::vector<std::vector<double>> CP =
+        matrix::multiply(C, p_error_covariance);
+    std::vector<std::vector<double>> CT = matrix::transpose(C);
+    std::vector<std::vector<double>> CPCT = matrix::multiply(CP, CT);
+    std::vector<std::vector<double>> CPCT_R =
+        matrix::add(CPCT, r_noise_covariance);
+    std::vector<std::vector<double>> CPCT_R_inverse = matrix::inverse(CPCT_R);
+    std::vector<std::vector<double>> PCT =
+        matrix::multiply(p_error_covariance, CT);
+    k_kalman_gain = matrix::multiply(PCT, CPCT_R_inverse);
+
+    if (_debug) {
+      std::cout << "calculated K" << std::endl;
+    }
+    /*Update*/
+    /*
+     * x_{k+1} = x_{k+1} + K * (y - C * x_{k+1})
+     * */
+    std::vector<std::vector<double>> Y_CX = matrix::subtract(
+        _y_result, matrix::multiply(C, new_x_hat_estimated_state));
+    std::vector<std::vector<double>> KY_CX =
+        matrix::multiply(k_kalman_gain, Y_CX);
+    new_x_hat_estimated_state = matrix::add(new_x_hat_estimated_state, KY_CX);
+
+    if (_debug) {
+      std::cout << "calculated x_{k+1}" << std::endl;
+    }
+    /*
+     * P_{k+1|k+1} = P_{k+1|k} - K*C*P_{k+1|k}
+     * */
+    std::vector<std::vector<double>> KC = matrix::multiply(k_kalman_gain, C);
+    std::vector<std::vector<double>> KCP =
+        matrix::multiply(KC, p_error_covariance);
+    p_error_covariance = matrix::subtract(p_error_covariance, KCP);
+
+    if (_debug) {
+      std::cout << "calculated P_{k+1|k+1}" << std::endl;
+    }
+    /*
+     * updates x_{k}:
+     *
+     * x_{k} = x_{k+1}
+     * */
+    x_hat_estimated_state = new_x_hat_estimated_state;
+
+    if (_debug) {
+      std::cout << "updated x_k" << std::endl;
+    }
+    //    timestep++;
+    return;
+  }
+};
+/*******************************************************************************
+ *******************************************************************************
  * LOCALIZATION CLASS
  *******************************************************************************
  ******************************************************************************/
 class localization {
 private:
-  cv::Point2f x_vector = {0, 0};
+  cv::Point2f position = {0, 0};
   float previous_velocity = 0;
   float previous_distance = 0;
   float previous_rotational_velocity = 0;
@@ -42,10 +174,30 @@ private:
   const float MAX_ROTATION = PI;
   const float MIN_ROTATION = -PI;
   const float TOTAL_ROTATION = 2 * PI;
+  kalman_filter *kalman;
 
 public:
+  float max_error = 0.0f;
+
+  /*****************************************************************************
+   * CONSTRUCTOR
+   ****************************************************************************/
   localization(cv::Point _x_start_position = {0, 0})
-      : x_vector(_x_start_position){};
+      : position(_x_start_position) {
+    //    const double h_measurement_map_scalar = 1.0f;
+    //    unsigned long long timestep = 0;
+
+    std::vector<std::vector<double>> r = {
+        {40.0f, 0, 0}, {0, 40.0f, 0}, {0, 0, 40.0f}};
+    std::vector<std::vector<double>> q_estimated_covariance = {
+        {10, 0, 0}, {0, 10, 0}, {0, 0, 10}};
+    std::vector<std::vector<double>> p_0 = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+    std::vector<std::vector<double>> k_0 = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    std::vector<std::vector<double>> x_0 = {{0}, {0}, {0}};
+
+    kalman = new kalman_filter(q_estimated_covariance, p_0, x_0, k_0, r);
+    srand(time(NULL));
+  };
 
   /*****************************************************************************
    * CALCULATE DEAD RECKONING
@@ -75,118 +227,56 @@ public:
         cos(rotation) * (distance_traveled - previous_distance),
         sin(rotation) * (distance_traveled - previous_distance)};
 
-    x_vector = {x_vector.x + rotation_and_translation_vector.x,
-                x_vector.y + rotation_and_translation_vector.y};
+    position = {position.x + rotation_and_translation_vector.x,
+                position.y + rotation_and_translation_vector.y};
 
     if (_debug) {
-      std::cout << "velocity: " << _velocity
-                << " direction: " << _rotational_velocity << std::endl
-                << x_vector << " " << rotation;
+      std::cout << std::endl
+                << "dr " << position << " " << rotation << std::endl;
+    }
+    std::vector<std::vector<double>> u_input = {
+        {_velocity * cos(_rotational_velocity)},
+        {_velocity * sin(_rotational_velocity)},
+        {_rotational_velocity}};
+
+    std::vector<std::vector<double>> y_output = {
+        {position.x}, {position.y}, {rotation}};
+
+    /*random error calculation*/
+    float error_1 = 0;
+    float error_2 = 0;
+    float error_3 = 0;
+
+    if (max_error != 0) {
+      error_1 =
+          (static_cast<float>(rand()) /
+           (static_cast<float>(static_cast<float>(RAND_MAX) / max_error * 2))) -
+          max_error;
+      error_2 =
+          (static_cast<float>(rand()) /
+           (static_cast<float>(static_cast<float>(RAND_MAX) / max_error * 2))) -
+          max_error;
+      error_3 =
+          (static_cast<float>(rand()) /
+           (static_cast<float>(static_cast<float>(RAND_MAX) / max_error * 2))) -
+          max_error;
+    }
+    std::vector<std::vector<double>> y_noise_output = {
+        {y_output[0][0] + error_1},
+        {y_output[0][1] + error_2},
+        {y_output[0][2] + error_3}};
+
+    kalman->calculate_kalman(u_input, y_noise_output);
+
+    if (_debug) {
+      std::cout << "ka [" << kalman->x_hat_estimated_state[0][0] << ","
+                << kalman->x_hat_estimated_state[1][0] << "] "
+                << kalman->x_hat_estimated_state[2][0] << std::endl;
     }
     return;
   }
   /*****************************************************************************
    * RETURN X std::vector FOR DEBUGGING
    ****************************************************************************/
-  cv::Point2f get_x_vector(void) { return x_vector; }
-};
-
-/*******************************************************************************
- *******************************************************************************
- * KALMAN FILTER CLASS
- *******************************************************************************
- ******************************************************************************/
-class kalman_filter {
-private:
-  const double h_measurement_map_scalar = 1.0f;
-  unsigned long long timestep = 0;
-
-  std::vector<std::vector<double>> r_noise_covariance = {
-      {40.0f, 0, 0}, {0, 40.0f, 0}, {0, 0, 40.0f}};
-  std::vector<std::vector<double>> q_estimated_covariance = {
-      {10, 0, 0}, {0, 10, 0}, {0, 0, 10}};
-  std::vector<std::vector<double>> p_error_covariance = {
-      {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-  std::vector<std::vector<double>> k_kalman_gain = {
-      {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-  std::vector<std::vector<double>> x_hat_estimated_state = {};     /*x_k*/
-  std::vector<std::vector<double>> new_x_hat_estimated_state = {}; /*x_{k+1}*/
-  std::vector<std::vector<double>> A = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-  std::vector<std::vector<double>> B = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-  std::vector<std::vector<double>> C = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-  std::vector<std::vector<double>> D = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-
-public:
-  /*****************************************************************************
-   * CONSTRUCTOR
-   ****************************************************************************/
-  kalman_filter(std::vector<std::vector<double>> _q,
-                std::vector<std::vector<double>> _p,
-                std::vector<std::vector<double>> _x, double _k)
-      : q_estimated_covariance(_q), p_error_covariance(_p), k_kalman_gain(_k),
-        x_hat_estimated_state(_x), new_x_hat_estimated_state(_x){};
-
-  /*****************************************************************************
-   * UPDATE KALMAN FILTER
-   ****************************************************************************/
-  void calculate_kalman(std::vector<std::vector<double>> _u_input,
-                        std::vector<std::vector<double>> _y_result) {
-
-    /*Prediction*/
-    /*
-     * x_{k+1} = A * x_k + B*u
-     * */
-    new_x_hat_estimated_state =
-        matrix::add((matrix::multiply(A, x_hat_estimated_state)),
-                    (matrix::multiply(B, _u_input)));
-
-    /*
-     * P_{k+1|k} = A*P_{k|k}*transpose(A) + Q
-     * */
-    std::vector<std::vector<double>> AP =
-        matrix::multiply(A, p_error_covariance);
-    std::vector<std::vector<double>> AT = matrix::transpose(A);
-    p_error_covariance =
-        matrix::add((matrix::multiply(AP, AT)), q_estimated_covariance);
-
-    /*
-     * K = P_{k+1|k}*transpose(C) * inverse(C*P*transpose(C) + R)
-     * */
-    std::vector<std::vector<double>> CP =
-        matrix::multiply(C, p_error_covariance);
-    std::vector<std::vector<double>> CT = matrix::transpose(C);
-    std::vector<std::vector<double>> CPCT = matrix::multiply(CP, CT);
-    std::vector<std::vector<double>> CPCT_R =
-        matrix::add(CPCT, r_noise_covariance);
-    std::vector<std::vector<double>> CPCT_R_inverse = matrix::inverse(CPCT_R);
-    std::vector<std::vector<double>> PCT =
-        matrix::multiply(p_error_covariance, CT);
-    k_kalman_gain = matrix::multiply(PCT, CPCT_R_inverse);
-
-    /*Update*/
-    /*
-     * x_{k+1} = x_{k+1} + K * (y - C * x_{k+1})
-     * */
-    std::vector<std::vector<double>> Y_CX = matrix::subtract(
-        _y_result, matrix::multiply(C, new_x_hat_estimated_state));
-    new_x_hat_estimated_state = matrix::add(new_x_hat_estimated_state, Y_CX);
-
-    /*
-     * P_{k+1|k+1} = P_{k+1|k} - K*C*P_{k+1|k}
-     * */
-    std::vector<std::vector<double>> KC = matrix::multiply(k_kalman_gain, C);
-    std::vector<std::vector<double>> KCP =
-        matrix::multiply(KC, p_error_covariance);
-    p_error_covariance = matrix::subtract(p_error_covariance, KCP);
-
-    /*
-     * updates x_{k}:
-     *
-     * x_{k} = x_{k+1}
-     * */
-    x_hat_estimated_state = new_x_hat_estimated_state;
-
-    timestep++;
-    return;
-  }
+  cv::Point2f get_position(void) { return position; }
 };
