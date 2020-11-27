@@ -136,50 +136,48 @@ public:
     /*
      * x_{k+1} = A * x_k + B*u
      * */
-    new_x_hat_estimated_state = matrix::MatrixAdder(
-        (matrix::matrix::Multiply(A, x_hat_estimated_state)),
-        (matrix::Multiply(B, _u_input)));
+    new_x_hat_estimated_state =
+        matrix::add((matrix::multiply(A, x_hat_estimated_state)),
+                    (matrix::multiply(B, _u_input)));
 
     /*
      * P_{k+1|k} = A*P_{k|k}*transpose(A) + Q
      * */
     std::vector<std::vector<double>> AP =
-        matrix::Multiply(A, p_error_covariance);
-    std::vector<std::vector<double>> AT = matrix::getTranspose(A);
+        matrix::multiply(A, p_error_covariance);
+    std::vector<std::vector<double>> AT = matrix::transpose(A);
     p_error_covariance =
-        matrix::MatrixAdder((matrix::Multiply(AP, AT)), q_estimated_covariance);
+        matrix::add((matrix::multiply(AP, AT)), q_estimated_covariance);
 
     /*
      * K = P_{k+1|k}*transpose(C) * inverse(C*P*transpose(C) + R)
      * */
     std::vector<std::vector<double>> CP =
-        matrix::Multiply(C, p_error_covariance);
-    std::vector<std::vector<double>> CT = matrix::getTranspose(C);
-    std::vector<std::vector<double>> CPCT = matrix::Multiply(CP, CT);
+        matrix::multiply(C, p_error_covariance);
+    std::vector<std::vector<double>> CT = matrix::transpose(C);
+    std::vector<std::vector<double>> CPCT = matrix::multiply(CP, CT);
     std::vector<std::vector<double>> CPCT_R =
-        matrix::MatrixAdder(CPCT, r_noise_covariance);
-    std::vector<std::vector<double>> CPCT_R_inverse =
-        matrix::getInverse(CPCT_R);
+        matrix::add(CPCT, r_noise_covariance);
+    std::vector<std::vector<double>> CPCT_R_inverse = matrix::inverse(CPCT_R);
     std::vector<std::vector<double>> PCT =
-        matrix::Multiply(p_error_covariance, CT);
-    k_kalman_gain = matrix::Multiply(PCT, CPCT_R_inverse);
+        matrix::multiply(p_error_covariance, CT);
+    k_kalman_gain = matrix::multiply(PCT, CPCT_R_inverse);
 
     /*Update*/
     /*
      * x_{k+1} = x_{k+1} + K * (y - C * x_{k+1})
      * */
-    std::vector<std::vector<double>> Y_CX = matrix::matrixSubtractor(
-        _y_result, matrix::Multiply(C, new_x_hat_estimated_state));
-    new_x_hat_estimated_state =
-        matrix::MatrixAdder(new_x_hat_estimated_state, Y_CX);
+    std::vector<std::vector<double>> Y_CX = matrix::subtract(
+        _y_result, matrix::multiply(C, new_x_hat_estimated_state));
+    new_x_hat_estimated_state = matrix::add(new_x_hat_estimated_state, Y_CX);
 
     /*
      * P_{k+1|k+1} = P_{k+1|k} - K*C*P_{k+1|k}
      * */
-    std::vector<std::vector<double>> KC = matrix::Multiply(k_kalman_gain, C);
+    std::vector<std::vector<double>> KC = matrix::multiply(k_kalman_gain, C);
     std::vector<std::vector<double>> KCP =
-        matrix::Multiply(KC, p_error_covariance);
-    p_error_covariance = matrix::matrixSubtractor(p_error_covariance, KCP);
+        matrix::multiply(KC, p_error_covariance);
+    p_error_covariance = matrix::subtract(p_error_covariance, KCP);
 
     /*
      * updates x_{k}:

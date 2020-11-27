@@ -1,3 +1,4 @@
+#pragma once
 #include <cmath>
 #include <stdexcept>
 #include <stdio.h>
@@ -16,10 +17,16 @@
  ******************************************************************************/
 class matrix {
 public:
+  std::vector<std::vector<double>> data;
+
+  /*****************************************************************************
+   * CONSTRUCTOR
+   ****************************************************************************/
+  matrix(std::vector<std::vector<double>> _input) : data(_input){};
   /*****************************************************************************
    * GET DETERMINANT OF MATRICES
    ****************************************************************************/
-  static double getDeterminant(const std::vector<std::vector<double>> vect) {
+  static double determinant(std::vector<std::vector<double>> vect) {
     if (vect.size() != vect[0].size()) {
       throw std::runtime_error("Matrix is not quadratic");
     }
@@ -56,7 +63,7 @@ public:
       }
 
       // recursive call
-      result = result + sign * vect[0][i] * getDeterminant(subVect);
+      result = result + sign * vect[0][i] * determinant(subVect);
       sign = -sign;
     }
 
@@ -67,7 +74,7 @@ public:
    * GET COFACTOR OF MATRICES
    ****************************************************************************/
   static std::vector<std::vector<double>>
-  getCofactor(const std::vector<std::vector<double>> vect) {
+  cofactor(std::vector<std::vector<double>> vect) {
     if (vect.size() != vect[0].size()) {
       throw std::runtime_error("Matrix is not quadratic");
     }
@@ -97,7 +104,7 @@ public:
           }
           p++;
         }
-        solution[i][j] = pow(-1, i + j) * getDeterminant(subVect);
+        solution[i][j] = pow(-1, i + j) * determinant(subVect);
       }
     }
     return solution;
@@ -107,12 +114,12 @@ public:
    * INVERSE MATRICES
    ****************************************************************************/
   static std::vector<std::vector<double>>
-  getInverse(const std::vector<std::vector<double>> vect) {
-    if (getDeterminant(vect) == 0) {
+  inverse(std::vector<std::vector<double>> vect) {
+    if (determinant(vect) == 0) {
       throw std::runtime_error("Determinant is 0");
     }
 
-    double d = 1.0 / getDeterminant(vect);
+    double d = 1.0 / determinant(vect);
     std::vector<std::vector<double>> solution(vect.size(),
                                               std::vector<double>(vect.size()));
 
@@ -122,7 +129,7 @@ public:
       }
     }
 
-    solution = getTranspose(getCofactor(solution));
+    solution = transpose(cofactor(solution));
 
     for (size_t i = 0; i < vect.size(); i++) {
       for (size_t j = 0; j < vect.size(); j++) {
@@ -137,7 +144,7 @@ public:
    * TRANSPOSE MATRICES
    ****************************************************************************/
   static std::vector<std::vector<double>>
-  getTranspose(std::vector<std::vector<double>> matrix1) {
+  transpose(std::vector<std::vector<double>> matrix1) {
 
     // Transpose-matrix: height = width(matrix), width = height(matrix)
     std::vector<std::vector<double>> solution(
@@ -156,8 +163,8 @@ public:
    * MULTIPLY MATRICES
    ****************************************************************************/
   static std::vector<std::vector<double>>
-  Multiply(std::vector<std::vector<double>> &a,
-           std::vector<std::vector<double>> &b) {
+  multiply(std::vector<std::vector<double>> a,
+           std::vector<std::vector<double>> b) {
     const int n = a.size();
     const int m = a[0].size();
     const int p = b[0].size();
@@ -177,8 +184,7 @@ public:
    * ADD MATRICES
    ****************************************************************************/
   static std::vector<std::vector<double>>
-  MatrixAdder(const std::vector<std::vector<double>> &A,
-              const std::vector<std::vector<double>> &B) {
+  add(std::vector<std::vector<double>> A, std::vector<std::vector<double>> B) {
     std::vector<std::vector<double>> C(A.size());
 
     for (size_t i = 0; i < A.size(); i++) {
@@ -195,8 +201,8 @@ public:
    * SUBTRACT MATRICES
    ****************************************************************************/
   static std::vector<std::vector<double>>
-  matrixSubtractor(const std::vector<std::vector<double>> &A,
-                   const std::vector<std::vector<double>> &B) {
+  subtract(std::vector<std::vector<double>> A,
+           std::vector<std::vector<double>> B) {
     std::vector<std::vector<double>> C(A.size());
 
     for (size_t i = 0; i < A.size(); i++) {
