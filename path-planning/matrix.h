@@ -1,4 +1,5 @@
 #pragma once
+#include "localization.h"
 #include <cmath>
 #include <iostream>
 #include <path_planning.h>
@@ -229,5 +230,20 @@ public:
       }
     }
     return C;
+  }
+  /*****************************************************************************
+   * PRINT MATRICES
+   ****************************************************************************/
+  static void print(std::vector<std::vector<double>> _input,
+                    std::string _name = "") {
+    if (_name != "") {
+      std::cout << _name << std::endl;
+    }
+    for (size_t i = 0; i < _input.size(); i++) {
+      for (size_t j = 0; j < _input[0].size(); j++) {
+        std::cout << _input[i][j] << " ";
+      }
+      std::cout << std::endl;
+    }
   }
 };

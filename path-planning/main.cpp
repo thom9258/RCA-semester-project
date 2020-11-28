@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
   (void)argc;
   (void)argv;
   bool do_path_planning = false;
+
   const float map_show_scalar = 0.7;
   int hammersley_node_amount = 1000;
   int map_resize_scalar = 10;
@@ -38,13 +39,17 @@ int main(int argc, char *argv[]) {
         path.a_star_path_finder(room_nodes[3], room_nodes[16]);
     path.draw_a_star_path(a_star_path, blue_pixel);
     path.show_map(map_show_scalar, WAIT);
-  }
-  /****************************************************************************/
-  cv::Point start_position = {0, 0};
-  localization dr = localization(start_position);
-  dr.max_error = 0.0f;
-  for (size_t i = 0; i < 20; i++) {
-    dr.update_dead_reckoning(1, 0.2, DEBUG);
+  } else {
+    /**************************************************************************/
+    cv::Point start_position = {0, 0};
+    localization dr = localization(start_position);
+    dr.max_error = 0.0f;
+    for (size_t i = 0; i < 10; i++) {
+      matrix::print(dr.kalman->kalman_gain());
+      std::cout << "determinant: "
+                << matrix::determinant(dr.kalman->kalman_gain()) << std::endl;
+      dr.update_dead_reckoning(1, 0.2, DEBUG);
+    }
   }
   return 0;
 }
