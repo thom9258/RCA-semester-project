@@ -1,5 +1,6 @@
 #include "localization.h"
 #include "path_planning.h"
+#include <fstream>
 #include <iostream>
 #include <opencv2/core/matx.hpp>
 #include <opencv2/core/types.hpp>
@@ -15,7 +16,8 @@ int main(int argc, char *argv[]) {
   bool do_node_validation_test = false;
   bool a_star_test_one_to_all = false;
   bool a_star_test_full_path = false;
-  bool a_star_test_back_and_forth = true;
+  bool a_star_test_back_and_forth = false;
+  bool qq_plot_normal_distibution = true;
 
   bool do_path_planning = false;
   bool do_localization = false;
@@ -182,6 +184,23 @@ int main(int argc, char *argv[]) {
     p.show_map(map_show_scalar, WAIT);
   }
   /*****************************************************************************
+   * QUASI_RANDOM QQ-PLOT
+   * **************************************************************************/
+  if (qq_plot_normal_distibution) {
+    path_planning p(maps[1]);
+    p.resize_map(map_resize_scalar);
+    p.show_map(map_show_scalar, NO_WAIT);
+
+    p.generate_quasirandom_hammersley_nodes(1000);
+    std::vector<cv::Point> data_set = p.waypoint_nodes;
+    std::ofstream outputfile;
+    outputfile.open("quasi_random_normal_distibution_test.csv");
+    for (size_t i = 0; i < data_set.size(); i++) {
+      outputfile << data_set[i].x << "," << data_set[i].y << std::endl;
+    }
+  }
+
+  /*****************************************************************************
    * PATH PLANNING
    * **************************************************************************/
   if (do_path_planning) {
@@ -201,6 +220,9 @@ int main(int argc, char *argv[]) {
     path.draw_a_star_path(a_star_path, blue_pixel);
     path.show_map(map_show_scalar, WAIT);
   }
+  /*****************************************************************************
+   * LOCALIZATION
+   * **************************************************************************/
   if (do_localization) {
     /**************************************************************************/
     cv::Point start_position = {0, 0};
