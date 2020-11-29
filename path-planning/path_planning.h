@@ -4,6 +4,7 @@
 #include <opencv2/core/matx.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <queue>
@@ -39,6 +40,9 @@
  *                                  private. Fixed bug that didnt allow code to
  *                                  execute without using cv::imshow() first
  *                                  Not really a bug "fix" but a workaround.
+ *                  291120  TH  Improved drawing functions for better
+ *                              reprecentation and implemented a save image
+ *                              function.
  *
  */
 
@@ -133,7 +137,6 @@ private:
   cv::Mat eroded_map;
 
   std::string map_name;
-  std::vector<cv::Point> waypoint_nodes;
   std::vector<path_node> waypoint_path_nodes;
   std::vector<path_node> room_nodes;
   int scaling_factor = 1;
@@ -237,6 +240,7 @@ private:
 public:
   int map_width;
   int map_height;
+  std::vector<cv::Point> waypoint_nodes;
   //----------------------------------------------------------------------------
   // CONSTRUCTOR
   //----------------------------------------------------------------------------
@@ -268,7 +272,36 @@ public:
       cv::waitKey();
     }
   }
+  //----------------------------------------------------------------------------
+  // SHOW THE NODE MAP
+  //----------------------------------------------------------------------------
+  void show_erosion_map(float _scale_size = 1, bool _wait = NO_WAIT) {
+    /*guard clause*/
+    if (node_map.empty()) {
+      return;
+    }
+    /*clone map insead of using implicit pointers*/
+    cv::Mat view_map = eroded_map.clone();
+    cv::resize(view_map, view_map, cv::Size(), _scale_size, _scale_size,
+               cv::INTER_NEAREST);
+    cv::namedWindow(map_name);
+    cv::imshow(map_name, view_map);
+    if (_wait) {
+      cv::waitKey();
+    }
+  }
 
+  //----------------------------------------------------------------------------
+  // SAVE THE NODE MAP
+  //----------------------------------------------------------------------------
+  void save_map(std::string _name, std::string _map = "") {
+    if (_map == "ERODED") {
+      cv::imwrite(_name, eroded_map);
+      return;
+    }
+    cv::imwrite(_name, node_map);
+    return;
+  }
   //----------------------------------------------------------------------------
   // RESIZE THE IN MEMORY MAP
   //----------------------------------------------------------------------------
@@ -443,9 +476,9 @@ public:
   //----------------------------------------------------------------------------
   // COLOR WAYPOINT NODE LIST ONTO NODE MAP
   //----------------------------------------------------------------------------
-  void color_waypoint_nodes(cv::Vec3b _color = green_pixel) {
+  void color_waypoint_nodes(cv::Vec3b _color = green_pixel, int _dot_size = 1) {
     for (size_t i = 0; i < waypoint_nodes.size(); i++) {
-      cv::line(node_map, waypoint_nodes[i], waypoint_nodes[i], _color);
+      cv::circle(node_map, waypoint_nodes[i], _dot_size, _color, cv::FILLED);
     }
     for (size_t i = 0; i < room_nodes.size(); i++) {
       cv::circle(node_map, room_nodes[i].get_position(), 10, GREEN, cv::FILLED);
@@ -701,9 +734,10 @@ public:
   // A* PATH DRAWER
   //----------------------------------------------------------------------------
   void draw_a_star_path(std::vector<cv::Point> a_star_path,
-                        cv::Vec3b _color = red_pixel) {
+                        cv::Vec3b _color = red_pixel, int _line_size = 4) {
     for (size_t i = 1; i < a_star_path.size(); i++) {
-      cv::line(node_map, a_star_path[i], a_star_path[i - 1], _color, 4);
+      cv::line(node_map, a_star_path[i], a_star_path[i - 1], _color,
+               _line_size);
     }
     return;
   }

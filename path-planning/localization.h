@@ -47,7 +47,7 @@ private:
   std::vector<std::vector<double>> A = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
   std::vector<std::vector<double>> B = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
   std::vector<std::vector<double>> C = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-  std::vector<std::vector<double>> D = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  std::vector<std::vector<double>> D = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
 public:
   std::vector<std::vector<double>> p_error_covariance = {
@@ -116,7 +116,33 @@ public:
     /*************************Update step**************************************/
 
     /*
-     * x_{k+1} = x_{k+1} + K * (y - C * x_{k+1})
+     * K = P_{k+1|k}*transpose(C) * inverse(C*P_{k+1|k}*transpose(C) + R)
+     * */
+    /* C*P */
+    std::vector<std::vector<double>> CP =
+        matrix::multiply(C, p_error_covariance);
+    /* transpose(C) */
+    std::vector<std::vector<double>> CT = matrix::transpose(C);
+    /* C*P*transpose(C) */
+    std::vector<std::vector<double>> CPCT = matrix::multiply(CP, CT);
+    /* C*P*transpose(C) + R */
+    std::vector<std::vector<double>> CPCT_R =
+        matrix::add(CPCT, r_noise_covariance);
+    /* inverse(C*P*transpose(C) + R) */
+    std::vector<std::vector<double>> CPCT_R_inverse = matrix::inverse(CPCT_R);
+    /* P_{k+1|k}*transpose(C) */
+    CT = matrix::transpose(C);
+    std::vector<std::vector<double>> PCT =
+        matrix::multiply(p_error_covariance, CT);
+    /* K = P_{k+1|k}*transpose(C) * inverse(C*P*transpose(C) + R) */
+    k_kalman_gain = matrix::multiply(PCT, CPCT_R_inverse);
+
+    if (_debug) {
+      std::cout << "calculated K" << std::endl;
+    }
+
+    /*
+     * x_hat_{k+1} = x_hat_{k+1} + K * (y - C * x_hat_{k+1})
      * */
     /* (y - C * x_{k+1}) */
     std::vector<std::vector<double>> Y_CX = matrix::subtract(
@@ -130,9 +156,7 @@ public:
     if (_debug) {
       std::cout << "calculated x_{k+1}" << std::endl;
     }
-    /* save a copy of p_rerror_covariance for kalman gain calculation */
-    //    std::vector<std::vector<double>> previous_p_error_covariance =
-    //        p_error_covariance;
+
     /*
      * P_{k+1|k+1} = P_{k+1|k} - K_k*C*P_{k+1|k}
      * */
@@ -155,33 +179,6 @@ public:
     if (_debug) {
       std::cout << "updated x_k" << std::endl;
     }
-
-    /*
-     * K = P_{k+1|k}*transpose(C) * inverse(C*P_{k+1|k}*transpose(C) + R)
-     * */
-    /* C*P */
-    std::vector<std::vector<double>> CP =
-        matrix::multiply(C, /*previous_*/ p_error_covariance);
-    /* transpose(C) */
-    std::vector<std::vector<double>> CT = matrix::transpose(C);
-    /* C*P*transpose(C) */
-    std::vector<std::vector<double>> CPCT = matrix::multiply(CP, CT);
-    /* C*P*transpose(C) + R */
-    std::vector<std::vector<double>> CPCT_R =
-        matrix::add(CPCT, r_noise_covariance);
-    /* inverse(C*P*transpose(C) + R) */
-    std::vector<std::vector<double>> CPCT_R_inverse = matrix::inverse(CPCT_R);
-    /* P_{k+1|k}*transpose(C) */
-    CT = matrix::transpose(C);
-    std::vector<std::vector<double>> PCT =
-        matrix::multiply(/*previous_*/ p_error_covariance, CT);
-    /* K = P_{k+1|k}*transpose(C) * inverse(C*P*transpose(C) + R) */
-    k_kalman_gain = matrix::multiply(PCT, CPCT_R_inverse);
-
-    if (_debug) {
-      std::cout << "calculated K" << std::endl;
-    }
-
     timestep++;
     return;
   }
@@ -263,15 +260,13 @@ public:
                 << "dr " << position << " " << rotation << std::endl;
     }
     std::vector<std::vector<double>> u_input = {
-        {_velocity * cos(_rotational_velocity)},
-        {_velocity * (-1) * sin(_rotational_velocity)},
-        {_rotational_velocity}};
+        {_velocity * cos(rotation)}, {_velocity * sin(rotation)}, {rotation}};
 
     std::vector<std::vector<double>> y_output = {
         {position.x}, {position.y}, {rotation}};
 
     /*random error calculation*/
-    float error_1 = 0;
+    float error_1 = 0.2;
     float error_2 = 0;
     float error_3 = 0;
 
