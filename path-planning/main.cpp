@@ -14,10 +14,10 @@ int main(int argc, char *argv[]) {
 
   bool do_hammersley_node_test = false;
   bool do_node_validation_test = false;
-  bool a_star_test_one_to_all = false;
+  bool a_star_test_one_to_all = true;
   bool a_star_test_full_path = false;
   bool a_star_test_back_and_forth = false;
-  bool qq_plot_normal_distibution = true;
+  bool qq_plot_normal_distibution = false;
 
   bool do_path_planning = false;
   bool do_localization = false;
@@ -38,32 +38,6 @@ int main(int argc, char *argv[]) {
    * HAMMERSLEY NODE TEST
    * **************************************************************************/
   if (do_hammersley_node_test) {
-
-    path_planning p(maps[1]);
-    p.resize_map(map_resize_scalar);
-    p.show_map(map_show_scalar, NO_WAIT);
-    p.erode_map(map_erosion);
-
-    p.generate_quasirandom_hammersley_nodes(1000);
-    p.remove_unwanted_nodes();
-    p.color_waypoint_nodes(red_pixel, 4);
-    p.waypoint_nodes = {};
-    p.save_map("hammersley_node_placement_1000_red.png");
-    p.show_map(map_show_scalar, WAIT);
-
-    p.generate_quasirandom_hammersley_nodes(100);
-    p.remove_unwanted_nodes();
-    p.color_waypoint_nodes(blue_pixel, 8);
-    p.waypoint_nodes = {};
-    p.save_map("hammersley_node_placement_100_green.png");
-    p.show_map(map_show_scalar, WAIT);
-
-    p.generate_quasirandom_hammersley_nodes(10);
-    p.remove_unwanted_nodes();
-    p.color_waypoint_nodes(blue_pixel, 15);
-    p.waypoint_nodes = {};
-    //    p.save_map("hammersley_node_placement_10_blue.png");
-    p.show_map(map_show_scalar, WAIT);
   }
 
   /*****************************************************************************
@@ -115,7 +89,7 @@ int main(int argc, char *argv[]) {
 
     for (size_t i = 0; i < room_nodes.size(); i++) {
       std::vector<cv::Point> a_star_path =
-          p.a_star_path_finder(room_nodes[3], room_nodes[i]);
+          p.a_star_path_finder(room_nodes[0], room_nodes[i]);
       p.draw_a_star_path(a_star_path, blue_pixel);
       //      p.draw_a_star_path(a_star_path, curr_color);
       //      cv::Vec3b curr_color = {uchar(float(blue_pixel[0] * modifier)),
