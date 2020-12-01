@@ -60,13 +60,15 @@ public:
   float epsilon;
   enum action { UP, DOWN, LEFT, RIGHT };
 
+  std::vector<std::vector<int>> room_locations;
+
   /*****************************************************************************
    * CONSTRUCTOR
    * **************************************************************************/
   QLearning(){};
-  QLearning(std::vector<std::vector<int>> _input_image, float _epsilon)
-      : environment(_input_image), rows(_input_image.size()),
-        columns(_input_image[0].size()), epsilon(_epsilon) {
+  QLearning(std::vector<std::vector<int>> _input_map, float _epsilon)
+      : environment(_input_map), rows(_input_map.size()),
+        columns(_input_map[0].size()), epsilon(_epsilon) {
     for (int x = 0; x < columns; x++) {
       std::vector<float> column;
       for (int y = 0; y < rows; y++) {
@@ -91,6 +93,28 @@ public:
 
     /* Seed random */
     srand(time(NULL));
+
+    /* Index rooms */
+    for (int x = 0; x < columns; x++) {
+      for (int y = 0; y < rows; y++) {
+          if(environment[x][y] != '#'){
+              room_locations.push_back({x,y});
+          }
+      }
+    }
+  }
+  /*****************************************************************************
+   * GET ROOM INDEX FROM COORDINATES
+   * **************************************************************************/
+  int get_room_index(int x, int y){
+      for(size_t i = 0; i < room_locations.size();i++){
+          if(x == room_locations[i][0] && y == room_locations[i][1]){
+              return i;
+          }
+      }
+      //This shouldnt happen, no corresponding room
+      //std::cout << "Room disaster" << std::endl;
+      return -1;
   }
 
   /*****************************************************************************
@@ -152,7 +176,7 @@ public:
     float greedyness = (static_cast<float>(rand()) /
                   (static_cast<float>(static_cast<float>(RAND_MAX))));
 
-    float current_max_value = std::numeric_limits<float>::min();
+    float current_max_value = -1;//std::numeric_limits<float>::min();
     action best_action =
         possible_actions[0]; // Make sure that we have a default action (not
                              // really necessary)
@@ -183,7 +207,7 @@ public:
   action get_best_action(state s) {
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
 
-    float current_max_value = std::numeric_limits<float>::min();
+    float current_max_value = -1;//std::numeric_limits<float>::min();
     action best_action =
         possible_actions[0]; // Make sure that we have a default action (not
                              // really necessary)
@@ -212,6 +236,26 @@ public:
           std::cout << char(environment[x][y]);
         } else {
           std::cout << '-';
+        }
+        std::cout << ' ';
+      }
+      std::cout << std::endl;
+    }
+  }
+
+  /*****************************************************************************
+   * PRINT ROOM INDEXES
+   * **************************************************************************/
+  void print_rooms() {
+    for (int x = 0; x < columns; x++) {
+      for (int y = 0; y < rows; y++) {
+        int room_index = get_room_index(x,y);
+        if (room_index != -1) {
+          printf("%2.2i", room_index);
+          //std::cout << room_index;
+        } else {
+          //std::cout << '#';
+          printf("--");
         }
         std::cout << ' ';
       }
