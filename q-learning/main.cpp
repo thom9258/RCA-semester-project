@@ -54,9 +54,9 @@ int main() {
           QLearning::state S_next = mylearning.get_next_state(S,A); /*next state S'*/
           float R = mylearning.get_reward(S,A);
 
+
           //Update Q(S,A)
           QLearning::action a_max = mylearning.get_best_action(S_next);
-          std::cout << " epasdasepa "<< j << std::endl;
           mylearning.Q[S.x][S.y][A] = mylearning.Q[S.x][S.y][A] +
                   alpha * (R + mylearning.discount_rate * mylearning.Q[S_next.x][S_next.y][a_max]
                   - mylearning.Q[S.x][S.y][A]);

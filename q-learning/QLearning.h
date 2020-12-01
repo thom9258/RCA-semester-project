@@ -97,6 +97,8 @@ public:
    * GET NEXT STATE GIVEN A CURRENT STATE S AND AN ACTION A
    * **************************************************************************/
   state get_next_state(state s, action a) {
+    if (s.x < 0 || s.y < 0)
+      return TERMINAL_STATE;
     if (environment[s.y][s.x] == '#' || environment[s.y][s.x] == '2' /*cake*/ ||
         environment[s.y][s.x] == 'd' /*trap*/)
       return TERMINAL_STATE;
@@ -160,8 +162,8 @@ public:
         //Iterate possible actions, and find the highest Q(s,a) value
         for (size_t i = 0; i < possible_actions.size(); i++) {
           state next = get_next_state(s, possible_actions[i]);
-          float q_value = Q[s.x][s.y][i];
           if (!next.is_outside_environment) {
+            float q_value = Q[s.x][s.y][i];
             if (q_value > current_max_value) {
               best_action = possible_actions[i];
               current_max_value = q_value;
@@ -189,8 +191,8 @@ public:
     //Iterate possible actions, and find the highest Q(s,a) value
     for (size_t i = 0; i < possible_actions.size(); i++) {
       state next = get_next_state(s, possible_actions[i]);
-      float q_value = Q[s.x][s.y][i];
       if (!next.is_outside_environment) {
+        float q_value = Q[s.x][s.y][i];
         if (q_value > current_max_value) {
           best_action = possible_actions[i];
           current_max_value = q_value;
