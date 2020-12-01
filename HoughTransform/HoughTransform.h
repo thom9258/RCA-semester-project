@@ -44,7 +44,9 @@ class HoughTransform
             int radius = c[2];
             float relation_constant = 4.8*30;
             double distance_to_marble = relation_constant/radius;
+            double distance_with_geometry = 277.1/(radius*2);
             std::cout << "Distance: " << distance_to_marble << std::endl;
+//          std::cout << "Distance_new: " << distance_with_geometry << std::endl;
             circle( img, center, radius, cv::Scalar(255,0,255), 3, cv::LINE_AA);
         }
 
