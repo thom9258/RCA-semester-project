@@ -3,10 +3,6 @@
 #include <fstream>
 #include <iostream>
 #include <math.h>
-#include <opencv2/core/matx.hpp>
-#include <opencv2/core/types.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/opencv.hpp>
 #include <stdexcept>
 #include <stdio.h>
 #include <string>
@@ -18,118 +14,73 @@
  *
  * Creation date:   281020
  *
- * Changelog:       DDMMYY  XX  Change
+ * Changelog:       DDMMYY  XX        Change
  *                  311120  TH/MI/ER  Started q-learning class
+ *                  011220  TH/MI/ER  Expanded q-learning class with
  *
  */
 
-enum DODEBUG { NO_DEBUG = 0, NODEBUG = 0, DEBUG = 1 };
-enum DOWAIT { NO_WAIT = 0, NOWAIT = 0, WAIT = 1 };
-enum WHATCOLOR { GREYSCALE = 0, COLOR = 1 };
-#define GREEN                                                                  \
-  { 0, 255, 0 }
-#define BLUE                                                                   \
-  { 255, 0, 0 }
-#define RED                                                                    \
-  { 0, 0, 255 }
-#define WHITE                                                                  \
-  { 255, 255, 255 }
-#define BLACK                                                                  \
-  { 0, 0, 0 }
-#define GREY                                                                   \
-  { 169, 169, 169 }
-
-const cv::Vec3b green_pixel = GREEN;
-const cv::Vec3b blue_pixel = BLUE;
-const cv::Vec3b red_pixel = RED;
-const cv::Vec3b white_pixel = WHITE;
-const cv::Vec3b black_pixel = BLACK;
-const cv::Vec3b grey_pixel = GREY;
+enum OPTIONS { NONE = 0, DEBUG = 1, WAIT = 2, GREYSCALE = 3 };
+enum POSITION { X = 0, Y = 1 };
 
 class QLearning {
 private:
-  //----------------------------------------------------------------------------
-  // GET PIXEL VALUE ARRANGED IN [BLUE GREEN RED] ORDER
-  //----------------------------------------------------------------------------
-  cv::Vec3b get_pixel_color(cv::Point _point, cv::Mat _map) {
-    /*white = [255, 255, 255], black = [0, 0, 0]*/
-    return _map.at<cv::Vec3b>(_point);
-  }
-
-  //----------------------------------------------------------------------------
-  // CHECK IF A POSITION IS VALID INSIDE MAP
-  //----------------------------------------------------------------------------
-  bool on_board(cv::Point next_position) {
-    if (next_position.x < 0 || next_position.x > rows || next_position.y < 0 ||
-        next_position.y > columns) {
-      return true;
+  /*****************************************************************************
+   * CHECK IF A POSITION IS VALID INSIDE MAP
+   * **************************************************************************/
+  int on_board(std::vector<int> next_position,
+               std::vector<std::vector<int>> _environment) {
+    if (next_position[X] < 0 || next_position[X] > columns ||
+        next_position[Y] < 0 || next_position[Y] > rows ||
+        _environment[next_position[X]][next_position[Y]] == '#') {
+      return false;
     }
-    return false;
+    return true;
   }
 
 public:
-  QLearning(){};
-  cv::Mat input_image;
   // Environment -- spaces: agent can move, "+": reward, "-": punishment.
-  std::vector<std::vector<char>> environment = {};
+  std::vector<std::vector<int>> environment = {};
   int rows, columns;
-  std::vector<std::vector<float>> V; /*Current estimate of state values*/
-  std::vector<std::vector<float>> R; /*Rewards*/
-  std::vector<std::vector<float>> Q; /*Policy*/
-
-  QLearning(cv::Mat _input_image)
-      : input_image(_input_image), rows(_input_image.rows),
-        columns(_input_image.cols) {
-    /*Setup estimate map*/
-    for (int i = 0; i < rows; i++) {
-      std::vector<float> row;
-      for (int j = 0; j < columns; j++) {
-        row.push_back(0.0f);
-      }
-      R.push_back(row);
-      V.push_back(row);
-      Q.push_back(row);
-    }
-
-    /*Setup obstacle map*/
-    for (int i = 0; i < columns; i++) {
-      std::vector<char> column;
-      for (int j = 0; j < rows; j++) {
-        if (get_pixel_color({i, j}, _input_image) == black_pixel) {
-          column.push_back('#');
-        } else {
-          column.push_back(' ');
-        }
-      }
-      environment.push_back(column);
-    }
-  }
-
-  // Current estimate of state values under the current policy:
-
-  // State is given by (x, y) in the environment. Must be inside the
-  // environment to be valid
+  std::vector<std::vector<float>> V = {}; /*Current estimate of state values*/
+  std::vector<std::vector<float>> R;      /*Rewards*/
+  std::vector<std::vector<float>> Q;      /*Policy*/
   struct state {
     int x;
     int y;
-    bool is_outside_environment;
+    bool is_outside_environment = false;
   };
-
   // A convenient definition of the terminal state
   const state TERMINAL_STATE = {-1, -1, true};
-
-  // Discount rate:
   float discount_rate = 0.9;
-
-  // Theta: the thredhold for determining the accuracy of the estimation
+  // threshold for determining the accuracy of the estimation
   float theta = 0.01;
-
-  // Actions:
   enum action { UP, DOWN, LEFT, RIGHT };
 
-  // Get the next state given a current state s and an action a:
-  state GetNextState(state s, action a) {
-    if (environment[s.y][s.x] != ' ')
+  /*****************************************************************************
+   * CONSTRUCTOR
+   * **************************************************************************/
+  QLearning(){};
+  QLearning(std::vector<std::vector<int>> _input_image)
+      : environment(_input_image), rows(_input_image.size()),
+        columns(_input_image[0].size()) {
+    for (int x = 0; x < columns; x++) {
+      std::vector<float> column;
+      for (int y = 0; y < rows; y++) {
+        column.push_back(0.0f);
+      }
+      V.push_back(column);
+      R.push_back(column);
+      Q.push_back(column);
+    }
+  }
+
+  /*****************************************************************************
+   * GET NEXT STATE GIVEN A CURRENT STATE S AND AN ACTION A
+   * **************************************************************************/
+  state get_next_state(state s, action a) {
+    if (environment[s.y][s.x] == '#' || environment[s.y][s.x] == '2' /*cake*/ ||
+        environment[s.y][s.x] == 'd' /*trap*/)
       return TERMINAL_STATE;
 
     switch (a) {
@@ -154,25 +105,28 @@ public:
     return s;
   }
 
-  // Ger the reward given a state and an action:
-  float GetReward(state s, action a) {
-    state next = GetNextState(s, a);
+  /*****************************************************************************
+   * GET REWARD GIVEN A STATE AND AN ACTION
+   * **************************************************************************/
+  float get_reward(state s, action a) {
+    state next = get_next_state(s, a);
     if (next.is_outside_environment) {
       return 0;
     } else {
-      if (environment[next.y][next.x] == '+')
+      if (environment[next.y][next.x] == '2' /*cake*/)
         return 1.0;
 
-      if (environment[next.y][next.x] == '-')
+      if (environment[next.y][next.x] == 'd' /*trap*/)
         return -1.0;
 
       return 0;
     }
   }
 
-  // Get the best action computed according to the current state-value
-  // estimate:
-  action GetNextAction(state s) {
+  /*****************************************************************************
+   * GET REWARD GIVEN A STATE AND AN ACTION
+   * **************************************************************************/
+  action get_next_action(state s) {
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
 
     float current_max_value = std::numeric_limits<float>::min();
@@ -181,8 +135,8 @@ public:
                              // really necessary)
 
     for (const auto a : possible_actions) {
-      state next = GetNextState(s, a);
-      float reward = GetReward(s, a);
+      state next = get_next_state(s, a);
+      float reward = get_reward(s, a);
       if (!next.is_outside_environment) {
         if (V[next.y][next.x] + reward > current_max_value) {
           best_action = a;
@@ -193,21 +147,27 @@ public:
     return best_action;
   }
 
-  // Print the environment with border around:
-  void PrintEnvironment() {
-    for (int y = -1; y <= rows; y++) {
-      for (int x = -1; x <= columns; x++)
-        if (y < 0 || y >= rows || x < 0 || x >= columns)
-          std::cout << "#";
-        else
-          std::cout << environment[y][x];
-
+  /*****************************************************************************
+   * PRINT THE ENVIRONMENT
+   * **************************************************************************/
+  void print_environment() {
+    for (int x = 0; x < columns; x++) {
+      for (int y = 0; y < rows; y++) {
+        if (environment[x][y] == '#' || environment[x][y] == 's') {
+          std::cout << char(environment[x][y]);
+        } else {
+          std::cout << '-';
+        }
+        std::cout << ' ';
+      }
       std::cout << std::endl;
     }
   }
 
-  // Print the current estimate of state values:
-  void PrintStateValues() {
+  /*****************************************************************************
+   * PRINT THE CURRENT ESTIMATE OF STATE VALUES
+   * **************************************************************************/
+  void print_state_values() {
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < columns; x++)
         printf(" %5.2f ", V[y][x]);
@@ -216,12 +176,18 @@ public:
     }
   }
 
-  // Print the current estimate of state values:
-  void PrintPolicy() {
+  /*****************************************************************************
+   * PRINT POLICY
+   * **************************************************************************/
+  void print_policy() {
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < columns; x++) {
-        if (environment[y][x] == ' ') {
-          action a = GetNextAction((state){x, y});
+        if (environment[y][x] != '#' && environment[y][x] != 'd' &&
+            environment[y][x] != '2') {
+          action a = get_next_action((state){
+              x,
+              y,
+          });
 
           switch (a) {
           case UP:
@@ -238,6 +204,7 @@ public:
             break;
           default:
             printf(" UNKNOWN ACTION! ");
+            /*FALLTHROUGH*/
           }
         } else {
           printf("   %c   ", environment[y][x]);
