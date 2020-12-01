@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
+#include <random>
 
 /*
  * Description:     A path planning class implementation for the project
@@ -20,6 +21,7 @@
  *
  */
 
+#define AMOUNTOFACTIONS 4
 enum OPTIONS { NONE = 0, DEBUG = 1, WAIT = 2, GREYSCALE = 3 };
 enum POSITION { X = 0, Y = 1 };
 
@@ -44,26 +46,27 @@ public:
   int rows, columns;
   std::vector<std::vector<float>> V = {}; /*Current estimate of state values*/
   std::vector<std::vector<float>> R;      /*Rewards*/
-  std::vector<std::vector<float>> Q;      /*Policy*/
+  std::vector<std::vector<std::vector<float>>> Q;      /*Policy*/
   struct state {
     int x;
     int y;
-    bool is_outside_environment = false;
+    bool is_outside_environment; //default: = false;
   };
   // A convenient definition of the terminal state
   const state TERMINAL_STATE = {-1, -1, true};
   float discount_rate = 0.9;
   // threshold for determining the accuracy of the estimation
   float theta = 0.01;
+  float epsilon;
   enum action { UP, DOWN, LEFT, RIGHT };
 
   /*****************************************************************************
    * CONSTRUCTOR
    * **************************************************************************/
   QLearning(){};
-  QLearning(std::vector<std::vector<int>> _input_image)
+  QLearning(std::vector<std::vector<int>> _input_image, float _epsilon)
       : environment(_input_image), rows(_input_image.size()),
-        columns(_input_image[0].size()) {
+        columns(_input_image[0].size()), epsilon(_epsilon) {
     for (int x = 0; x < columns; x++) {
       std::vector<float> column;
       for (int y = 0; y < rows; y++) {
@@ -71,8 +74,23 @@ public:
       }
       V.push_back(column);
       R.push_back(column);
+    }
+
+    /* Initialise Q matrix */
+    for (int x = 0; x < columns; x++) {
+      std::vector<std::vector<float>> column;
+      for (int y = 0; y < rows; y++) {
+          std::vector<float> row;
+          for (int z = 0; z < AMOUNTOFACTIONS; z++) {
+            row.push_back(0.0f);
+          }
+          column.push_back(row);
+      }
       Q.push_back(column);
     }
+
+    /* Seed random */
+    srand(time(NULL));
   }
 
   /*****************************************************************************
@@ -124,9 +142,43 @@ public:
   }
 
   /*****************************************************************************
-   * GET REWARD GIVEN A STATE AND AN ACTION
+   * GET BEST ACTION GIVEN A STATE - EPSILON GREEDY
    * **************************************************************************/
   action get_next_action(state s) {
+    std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
+
+    float greedyness = (static_cast<float>(rand()) /
+                  (static_cast<float>(static_cast<float>(RAND_MAX))));
+
+    float current_max_value = std::numeric_limits<float>::min();
+    action best_action =
+        possible_actions[0]; // Make sure that we have a default action (not
+                             // really necessary)
+
+    // Either select action with highest Q(s,a) value, or pick a random action (epsilon-greedy)
+    if(greedyness < epsilon){
+        //Iterate possible actions, and find the highest Q(s,a) value
+        for (size_t i = 0; i < possible_actions.size(); i++) {
+          state next = get_next_state(s, possible_actions[i]);
+          float q_value = Q[s.x][s.y][i];
+          if (!next.is_outside_environment) {
+            if (q_value > current_max_value) {
+              best_action = possible_actions[i];
+              current_max_value = q_value;
+            }
+          }
+        }
+        return best_action;
+    } else {
+        int random_action = rand() % possible_actions.size();
+        return possible_actions[random_action];
+    }
+  }
+
+  /*****************************************************************************
+   * GET BEST ACTION GIVEN A STATE - NOT! EPSILON GREEDY
+   * **************************************************************************/
+  action get_best_action(state s) {
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
 
     float current_max_value = std::numeric_limits<float>::min();
@@ -134,13 +186,14 @@ public:
         possible_actions[0]; // Make sure that we have a default action (not
                              // really necessary)
 
-    for (const auto a : possible_actions) {
-      state next = get_next_state(s, a);
-      float reward = get_reward(s, a);
+    //Iterate possible actions, and find the highest Q(s,a) value
+    for (size_t i = 0; i < possible_actions.size(); i++) {
+      state next = get_next_state(s, possible_actions[i]);
+      float q_value = Q[s.x][s.y][i];
       if (!next.is_outside_environment) {
-        if (V[next.y][next.x] + reward > current_max_value) {
-          best_action = a;
-          current_max_value = V[next.y][next.x] + reward;
+        if (q_value > current_max_value) {
+          best_action = possible_actions[i];
+          current_max_value = q_value;
         }
       }
     }
@@ -168,10 +221,15 @@ public:
    * PRINT THE CURRENT ESTIMATE OF STATE VALUES
    * **************************************************************************/
   void print_state_values() {
-    for (int y = 0; y < rows; y++) {
-      for (int x = 0; x < columns; x++)
-        printf(" %5.2f ", V[y][x]);
+    for (int x = 0; x < columns; x++) {
+      for (int y = 0; y < rows; y++){
+          if(environment[x][y] != '#'){
+              printf(" %5.2f ", V[x][y]);
+          } else{
+              printf("       ");
+          }
 
+      }
       printf("\n");
     }
   }
@@ -180,11 +238,12 @@ public:
    * PRINT POLICY
    * **************************************************************************/
   void print_policy() {
+    std::cout << "Print policy:" << std::endl;
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < columns; x++) {
         if (environment[y][x] != '#' && environment[y][x] != 'd' &&
             environment[y][x] != '2') {
-          action a = get_next_action((state){
+          action a = get_best_action((state){
               x,
               y,
           });

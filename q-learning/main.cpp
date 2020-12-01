@@ -17,7 +17,10 @@ int main() {
       {'#', '#', '#', '#', '#', 'f', 'g', '#', '#'},
       {'#', '#', '#', '#', '#', '#', '#', '#', '#'}};
 
-  QLearning mylearning(char_map);
+  float epsilon = 0.05; /*greedy value*/
+  float alpha = 0.1; /*step size*/
+
+  QLearning mylearning(char_map, epsilon);
   mylearning.print_environment();
 
   std::cout << "PRINT ENVIROMENT" << std::endl;
@@ -29,34 +32,40 @@ int main() {
   int sweep = 0;
   float delta;
 
+  size_t iterations = 10;
+  int start_x = 4;
+  int start_y = 4;
   // Start of the estimation loop
   std::cout << "MAIN LOOP" << std::endl;
-  do {
-    delta = 0;
-    std::cout << "Current policy:" << std::endl;
-    mylearning.print_policy();
 
-    // Perform a full sweep over the whole state space:
-    for (int y = 0; y < mylearning.rows; y++) {
-      for (int x = 0; x < mylearning.columns; x++) {
-        QLearning::state s = {x, y};
-        if (mylearning.environment[y][x] != '#') {
-          float v = mylearning.V[y][x];
-          QLearning::action a = mylearning.get_next_action(s);
-          float reward = mylearning.get_reward(s, a);
-          QLearning::state next = mylearning.get_next_state(s, a);
-          if (!next.is_outside_environment)
-            mylearning.V[y][x] = reward + mylearning.discount_rate *
-                                              mylearning.V[next.y][next.x];
+  //Loop for each episode
+  for(size_t j = 0; j < iterations; j++){
+      std::cout << " episode "<< j << std::endl;
+      // initialise S
+      QLearning::state S = {start_x,start_y,false};
 
-          delta = std::max(delta, (float)fabs(v - mylearning.V[y][x]));
-        }
-      }
-    }
+      //Loop for each step of the episode
+      while (!S.is_outside_environment) {
+          std::cout << " episode step "<< j << std::endl;
+          //Choose A from S using policy derived from Q (e.g. epsilon-greedy)
+          QLearning::action A = mylearning.get_next_action(S);
 
-    std::cout << "Sweep #" << ++sweep << " delta: " << delta << std::endl;
-    mylearning.print_state_values();
-  } while (
-      delta >
-      mylearning.theta); // Check if our currect estimate is accurate enough.
+          //Take action A, observe R, S' (nextstate)
+          QLearning::state S_next = mylearning.get_next_state(S,A); /*next state S'*/
+          float R = mylearning.get_reward(S,A);
+
+          //Update Q(S,A)
+          QLearning::action a_max = mylearning.get_best_action(S_next);
+          std::cout << " epasdasep "<< j << std::endl;
+          mylearning.Q[S.x][S.y][A] = mylearning.Q[S.x][S.y][A] +
+                  alpha * (R + mylearning.discount_rate * mylearning.Q[S_next.x][S_next.y][a_max]
+                  - mylearning.Q[S.x][S.y][A]);
+
+          //Update state - S <- S'
+          S = S_next;
+
+      } //until S is terminal
+
+      mylearning.print_policy();
+  }
 }
