@@ -4,7 +4,7 @@
 #include <queue>
 #include <stdexcept>
 #include <stdio.h>
-#include <bitset>
+
 
 int main() {
 
@@ -18,6 +18,7 @@ int main() {
 //      {'#', '#', '#', '1', '#', 'e', '#', '#', '#'},
 //      {'#', '#', '#', '#', '#', 'f', 'g', '#', '#'},
 //      {'#', '#', '#', '#', '#', '#', '#', '#', '#'}};
+    
 
   std::vector<std::vector<int>> char_map = {
       {'#', '#', '#', '#', '#', '#', '#', '#', '#'},
@@ -51,9 +52,9 @@ int main() {
   int start_y = 4;
   // Start of the estimation loop
   std::cout << "MAIN LOOP" << std::endl;
-
-  std::bitset<20> visited_list;
-
+    
+  std::bitset<ROOM_AMOUNT> visited_list;
+    
 
   //Loop for each episode
   for(size_t j = 0; j < iterations; j++){
