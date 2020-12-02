@@ -10,7 +10,6 @@
 #include <random>
 #include <bitset>
 #include <map>
-#include <iterator>
 
 /*
  * Description:     A path planning class implementation for the project
@@ -52,7 +51,7 @@ public:
   std::vector<std::vector<float>> V = {}; /*Current estimate of state values*/
   std::vector<std::vector<float>> R;      /*Rewards*/
   std::vector<std::vector<std::vector<float>>> Q;      /*Policy*/
-  std::map<std::bitset<ROOM_AMOUNT+7>, float> Q_Markov = {};
+  std::map<std::string, float> Q_Markov = {};
   struct state {
     int x;
     int y;
@@ -132,12 +131,12 @@ public:
       key &= _visited_list.to_ulong();
 
       //Check if Q value exists for key, if not, initialise it to 0.0f
-      if(!Q_Markov.count(key)){
-          Q_Markov.insert( std::pair<std::bitset<ROOM_AMOUNT+7>,float>(key,0.0f) );
+      if(!Q_Markov.count(key.to_string())){
+          Q_Markov.insert( std::pair<std::string,float>(key.to_string(),0.0f) );
       }
+      float result = Q_Markov[key.to_string()];
 
-      return Q_Markov[key];
-
+      return result;
   }
 
   /*****************************************************************************
@@ -159,10 +158,10 @@ public:
       key &= _visited_list.to_ulong();
 
       //Check if Q value exists for key, if not, initialise it to 0.0f
-      if(!Q_Markov.count(key)){
-          Q_Markov.insert( std::pair<std::bitset<ROOM_AMOUNT+7>,float>(key,_insert) );
+      if(!Q_Markov.count(key.to_string())){
+          Q_Markov.insert( std::pair<std::string,float>(key.to_string(),_insert) );
       } else {
-          Q_Markov[key] = _insert;
+          Q_Markov[key.to_string()] = _insert;
       }
   }
 
@@ -187,8 +186,8 @@ public:
   state get_next_state(state s, action a) {
     if (s.x < 0 || s.y < 0)
       return TERMINAL_STATE;
-    if (environment[s.y][s.x] == '#' || environment[s.y][s.x] == '2' /*cake*/ ||
-        environment[s.y][s.x] == 'd' /*trap*/)
+    if (environment[s.x][s.y] == '#' || environment[s.x][s.y] == '2' /*cake*/ ||
+        environment[s.x][s.y] == 'd' /*trap*/)
       return TERMINAL_STATE;
 
     std::bitset<ROOM_AMOUNT> new_visited_list = s.visited_list;
@@ -225,13 +224,13 @@ public:
     if (next.is_outside_environment) {
       return 0;
     } else {
-      if (environment[next.y][next.x] == '2' /*cake*/
+      if (environment[next.x][next.y] == '2' /*cake*/
               && !s.visited_list[get_room_index(next.x,next.y)]){
         return 1.0;
       }
 
 
-      if (environment[next.y][next.x] == 'd' /*trap*/)
+      if (environment[next.x][next.y] == 'd' /*trap*/)
         return -1.0;
 
       return 0;
@@ -356,40 +355,40 @@ public:
   /*****************************************************************************
    * PRINT POLICY
    * **************************************************************************/
-  void print_policy() {
-    std::cout << "Print policy:" << std::endl;
-    for (int y = 0; y < rows; y++) {
-      for (int x = 0; x < columns; x++) {
-        if (environment[y][x] != '#' && environment[y][x] != 'd' &&
-            environment[y][x] != '2') {
-          action a = get_best_action((state){
-              x,
-              y,
-          });
+//  void print_policy() {
+//    std::cout << "Print policy:" << std::endl;
+//    for (int y = 0; y < rows; y++) {
+//      for (int x = 0; x < columns; x++) {
+//        if (environment[y][x] != '#' && environment[y][x] != 'd' &&
+//            environment[y][x] != '2') {
+//          action a = get_best_action((state){
+//              x,
+//              y,
+//          });
 
-          switch (a) {
-          case UP:
-            printf("  UP   ");
-            break;
-          case DOWN:
-            printf(" DOWN  ");
-            break;
-          case LEFT:
-            printf(" LEFT  ");
-            break;
-          case RIGHT:
-            printf(" RIGHT ");
-            break;
-          default:
-            printf(" UNKNOWN ACTION! ");
-            /*FALLTHROUGH*/
-          }
-        } else {
-          printf("   %c   ", environment[y][x]);
-        }
-      }
+//          switch (a) {
+//          case UP:
+//            printf("  UP   ");
+//            break;
+//          case DOWN:
+//            printf(" DOWN  ");
+//            break;
+//          case LEFT:
+//            printf(" LEFT  ");
+//            break;
+//          case RIGHT:
+//            printf(" RIGHT ");
+//            break;
+//          default:
+//            printf(" UNKNOWN ACTION! ");
+//            /*FALLTHROUGH*/
+//          }
+//        } else {
+//          printf("   %c   ", environment[y][x]);
+//        }
+//      }
 
-      printf("\n");
-    }
-  }
+//      printf("\n");
+//    }
+//  }
 };

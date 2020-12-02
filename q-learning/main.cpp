@@ -23,12 +23,12 @@ int main() {
   std::vector<std::vector<int>> char_map = {
       {'#', '#', '#', '#', '#', '#', '#', '#', '#'},
       {'#', '#', '#', '7', '#', '#', '#', '#', '#'},
-      {'#', '5', '#', '2', '8', '#', '#', '#', '#'},
+      {'#', '2', '#', ' ', '8', '#', '#', '#', '#'},
       {'#', '4', '3', ' ', '#', '#', '#', '#', '#'},
       {'#', '#', ' ', 's', '9', 'a', '#', '#', '#'},
-      {'#', '#', '2', ' ', '#', 'b', 'c', 'd', '#'},
+      {'#', '#', ' ', ' ', '#', 'b', 'c', 'd', '#'},
       {'#', '#', '#', '1', '#', 'e', '#', '#', '#'},
-      {'#', '#', '#', '#', '#', 'f', '2', '#', '#'},
+      {'#', '#', '#', '#', '#', 'f', ' ', '#', '#'},
       {'#', '#', '#', '#', '#', '#', '#', '#', '#'}};
 
   float epsilon = 0.05; /*greedy value*/
@@ -44,12 +44,12 @@ int main() {
     for (int x = 0; x < mylearning.columns; x++)
       mylearning.V[y][x] = 0;
 
-  int sweep = 0;
-  float delta;
+//  int sweep = 0;
+//  float delta;
 
-  size_t iterations = 10;//0000;
+  size_t iterations = 100000;//0000;
   int start_x = 4;
-  int start_y = 4;
+  int start_y = 3;
   // Start of the estimation loop
   std::cout << "MAIN LOOP" << std::endl;
     
@@ -70,7 +70,6 @@ int main() {
           //Take action A, observe R, S' (nextstate)
           QLearning::state S_next = mylearning.get_next_state(S,A); /*next state S'*/
           float R = mylearning.get_reward(S,A);
-
 
           //Update Q(S,A)
           QLearning::action a_max = mylearning.get_best_action(S_next);
@@ -94,10 +93,20 @@ int main() {
           //visited_list[mylearning.get_room_index(S.x,S.y)] = 1;
           //Update state - S <- S'
           S = S_next;
-
       } //until S is terminal
 
-      mylearning.print_policy();
+      //mylearning.print_policy();
       //visited_list.reset();
+      if(j % 1000 == 0){
+          std::cout << "Iteration " << j << "'s best path: ";
+          QLearning::state Stest = {start_x,start_y,false,0};
+          while(!Stest.is_outside_environment){
+              std::cout << mylearning.get_room_index(Stest.x,Stest.y) << " ";
+              QLearning::action Atest = mylearning.get_best_action(Stest);
+              QLearning::state Stest_next = mylearning.get_next_state(Stest,Atest);
+              Stest = Stest_next;
+          }
+          std::cout << std::endl;
+      }
   }
 }
