@@ -53,13 +53,13 @@ int main() {
   // Start of the estimation loop
   std::cout << "MAIN LOOP" << std::endl;
     
-  std::bitset<ROOM_AMOUNT> visited_list;
+  //std::bitset<ROOM_AMOUNT> visited_list;
     
 
   //Loop for each episode
   for(size_t j = 0; j < iterations; j++){
       // initialise S
-      QLearning::state S = {start_x,start_y,false};
+      QLearning::state S = {start_x,start_y,false,0};
 
 
       //Loop for each step of the episode
@@ -75,21 +75,29 @@ int main() {
           //Update Q(S,A)
           QLearning::action a_max = mylearning.get_best_action(S_next);
           if(!S_next.is_outside_environment){
-            mylearning.Q[S.x][S.y][A] = mylearning.Q[S.x][S.y][A] +
-                    alpha * (R + mylearning.discount_rate * mylearning.Q[S_next.x][S_next.y][a_max]
-                    - mylearning.Q[S.x][S.y][A]);
+            //mylearning.Q[S.x][S.y][A] = mylearning.Q[S.x][S.y][A] +
+                    //alpha * (R + mylearning.discount_rate * mylearning.Q[S_next.x][S_next.y][a_max]
+                    //- mylearning.Q[S.x][S.y][A]);
+            float insert = mylearning.get_q_value(S.x, S.y, A, S.visited_list) +
+                    alpha * (R + mylearning.discount_rate *
+                             mylearning.get_q_value(S_next.x, S_next.y, a_max, S_next.visited_list) -
+                             mylearning.get_q_value(S.x, S.y, A, S.visited_list) );
+            mylearning.set_q_value(S.x, S.y, A, S.visited_list, insert);
           } else{
-              mylearning.Q[S.x][S.y][A] = mylearning.Q[S.x][S.y][A] +
-                      alpha * (R + 0 - mylearning.Q[S.x][S.y][A]);
+              //mylearning.Q[S.x][S.y][A] = mylearning.Q[S.x][S.y][A] +
+                      //alpha * (R + 0 - mylearning.Q[S.x][S.y][A]);
+              float insert = mylearning.get_q_value(S.x, S.y, A, S.visited_list) +
+                      alpha * (R + 0 - mylearning.get_q_value(S.x, S.y, A, S.visited_list) );
+              mylearning.set_q_value(S.x, S.y, A, S.visited_list, insert);
           }
 
-          visited_list[mylearning.get_room_index(S.x,S.y)] = 1;
+          //visited_list[mylearning.get_room_index(S.x,S.y)] = 1;
           //Update state - S <- S'
           S = S_next;
 
       } //until S is terminal
 
       mylearning.print_policy();
-      visited_list.reset();
+      //visited_list.reset();
   }
 }

@@ -218,6 +218,7 @@ int main(int _argc, char **_argv) {
     obstacle_range->setValue(closestObstacle_range);
     obstacle_angle->setValue(closestObstacle_angle);
     engine->process();
+
     dir = steer->getValue();
     std::cout << "Steer: " << steer->getValue() << "  ClosestObstacle range, angle "
               << closestObstacle_range << " " << closestObstacle_angle << std::endl;

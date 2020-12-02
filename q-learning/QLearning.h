@@ -52,15 +52,17 @@ public:
   std::vector<std::vector<float>> V = {}; /*Current estimate of state values*/
   std::vector<std::vector<float>> R;      /*Rewards*/
   std::vector<std::vector<std::vector<float>>> Q;      /*Policy*/
-    std::map<std::bitset<ROOM_AMOUNT+7>, float> Q_Markov;
+  std::map<std::bitset<ROOM_AMOUNT+7>, float> Q_Markov = {};
   struct state {
     int x;
     int y;
     bool is_outside_environment; //default: = false;
     std::bitset<ROOM_AMOUNT> visited_list;
   };
+
+  //std::bitset<ROOM_AMOUNT> empty_visited_list = 0;
   // A convenient definition of the terminal state
-  const state TERMINAL_STATE = {-1, -1, true};
+  const state TERMINAL_STATE = {-1, -1, true, 0};
   float discount_rate = 0.9;
   // threshold for determining the accuracy of the estimation
   float theta = 0.01;
@@ -112,6 +114,59 @@ public:
     }
   }
   /*****************************************************************************
+   * GET Q VALUE FROM MARKOV Q TABLE
+   * **************************************************************************/
+  float get_q_value(int x, int y, action a, std::bitset<ROOM_AMOUNT> _visited_list)
+  {
+      //Generate key
+      // 2 bits for action, 5 bits for room, 20 bits from visitedlist
+      std::bitset<ROOM_AMOUNT+7> key = 0;
+      uint32_t action_bit = a;
+      action_bit  = action_bit << (ROOM_AMOUNT+5);
+      key &= action_bit;
+
+      uint32_t room_index = get_room_index(x,y);
+      room_index = room_index << ROOM_AMOUNT;
+      key &= room_index;
+
+      key &= _visited_list.to_ulong();
+
+      //Check if Q value exists for key, if not, initialise it to 0.0f
+      if(!Q_Markov.count(key)){
+          Q_Markov.insert( std::pair<std::bitset<ROOM_AMOUNT+7>,float>(key,0.0f) );
+      }
+
+      return Q_Markov[key];
+
+  }
+
+  /*****************************************************************************
+   * SET Q VALUE IN MARKOV Q TABLE
+   * **************************************************************************/
+  void set_q_value(int x, int y, action a, std::bitset<ROOM_AMOUNT> _visited_list, float _insert)
+  {
+      //Generate key
+      // 2 bits for action, 5 bits for room, 20 bits from visitedlist
+      std::bitset<ROOM_AMOUNT+7> key = 0;
+      uint32_t action_bit = a;
+      action_bit  = action_bit << (ROOM_AMOUNT+5);
+      key &= action_bit;
+
+      uint32_t room_index = get_room_index(x,y);
+      room_index = room_index << ROOM_AMOUNT;
+      key &= room_index;
+
+      key &= _visited_list.to_ulong();
+
+      //Check if Q value exists for key, if not, initialise it to 0.0f
+      if(!Q_Markov.count(key)){
+          Q_Markov.insert( std::pair<std::bitset<ROOM_AMOUNT+7>,float>(key,_insert) );
+      } else {
+          Q_Markov[key] = _insert;
+      }
+  }
+
+  /*****************************************************************************
    * GET ROOM INDEX FROM COORDINATES
    * **************************************************************************/
   int get_room_index(int x, int y){
@@ -136,6 +191,9 @@ public:
         environment[s.y][s.x] == 'd' /*trap*/)
       return TERMINAL_STATE;
 
+    std::bitset<ROOM_AMOUNT> new_visited_list = s.visited_list;
+    new_visited_list[get_room_index(s.x,s.y)] = 1;
+
     switch (a) {
     case UP:
       s.y -= 1;
@@ -154,6 +212,7 @@ public:
     if (s.x < 0 || s.y < 0 || s.x >= columns || s.y >= rows)
       return TERMINAL_STATE;
 
+    s.visited_list = new_visited_list;
     s.is_outside_environment = false;
     return s;
   }
@@ -166,8 +225,11 @@ public:
     if (next.is_outside_environment) {
       return 0;
     } else {
-      if (environment[next.y][next.x] == '2' /*cake*/)
+      if (environment[next.y][next.x] == '2' /*cake*/
+              && !s.visited_list[get_room_index(next.x,next.y)]){
         return 1.0;
+      }
+
 
       if (environment[next.y][next.x] == 'd' /*trap*/)
         return -1.0;
@@ -177,9 +239,9 @@ public:
   }
 
   /*****************************************************************************
-   * GET BEST ACTION GIVEN A STATE - EPSILON GREEDY
+   * GET NEXT ACTION GIVEN A STATE - EPSILON GREEDY
    * **************************************************************************/
-  action get_next_action(state s, std::bitset<ROOM_AMOUNT> _visited_list) {
+  action get_next_action(state s) {
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
 
     float greedyness = (static_cast<float>(rand()) /
@@ -194,9 +256,10 @@ public:
     if(greedyness < epsilon){
         //Iterate possible actions, and find the highest Q(s,a) value
         for (size_t i = 0; i < possible_actions.size(); i++) {
-          state next = get_next_state(s, possible_actions[i], _visited_list);
+          state next = get_next_state(s, possible_actions[i]);
           if (!next.is_outside_environment) {
-            float q_value = Q[s.x][s.y][i];
+            //float q_value = Q[s.x][s.y][i];
+            float q_value = get_q_value(s.x, s.y, possible_actions[i], s.visited_list);
             if (q_value > current_max_value) {
               best_action = possible_actions[i];
               current_max_value = q_value;
@@ -210,16 +273,6 @@ public:
     }
   }
     
-    /*****************************************************************************
-     * GET BEST ACTION GIVEN A STATE - NOT! EPSILON GREEDY
-     * **************************************************************************/
-    
-    float get_q_value(int x, int y, action a, std::bitset<ROOM_AMOUNT> _visited_list)
-    {
-        
-    }
-
-
   /*****************************************************************************
    * GET BEST ACTION GIVEN A STATE - NOT! EPSILON GREEDY
    * **************************************************************************/
@@ -235,7 +288,8 @@ public:
     for (size_t i = 0; i < possible_actions.size(); i++) {
       state next = get_next_state(s, possible_actions[i]);
       if (!next.is_outside_environment) {
-        float q_value = Q[s.x][s.y][i];
+        //float q_value = Q[s.x][s.y][i];
+        float q_value = get_q_value(s.x, s.y, possible_actions[i], s.visited_list);
         if (q_value > current_max_value) {
           best_action = possible_actions[i];
           current_max_value = q_value;
