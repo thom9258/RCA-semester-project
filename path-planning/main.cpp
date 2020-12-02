@@ -251,9 +251,9 @@ int main(int argc, char *argv[]) {
      * dr_x , dr_y , dr_Ø , ka_x , ka_y , ka_Ø , ka_determinant
      */
 
-    /*increase time step with angular- and rotational velocity*/
     int counter = 0;
-    for (size_t i = 0; i < 50; i++) {
+    /*MOVEMENT 1*/
+    for (size_t i = 0; i < 40; i++) {
       /*Print to file output*/
       outputfile << dr.position.x << "," << dr.position.y << "," << dr.rotation
                  << "," << dr.kalman->x_hat_estimated_state[0][0] << ","
@@ -269,11 +269,11 @@ int main(int argc, char *argv[]) {
                 << matrix::determinant(dr.kalman->kalman_gain()) << std::endl
                 << std::endl;
       //      matrix::print(dr.kalman->kalman_gain());
-      dr.update_dead_reckoning(1, 0.2, NO_DEBUG);
+      dr.update_dead_reckoning(1, 0, NO_DEBUG);
       counter++;
     }
-    /*increase time step without angular- and rotational velocity*/
-    for (size_t i = 0; i < 50; i++) {
+    /*MOVEMENT 2*/
+    for (size_t i = 0; i < 4; i++) {
       /*Print to file output*/
       outputfile << dr.position.x << "," << dr.position.y << "," << dr.rotation
                  << "," << dr.kalman->x_hat_estimated_state[0][0] << ","
@@ -290,9 +290,72 @@ int main(int argc, char *argv[]) {
                 << std::endl;
 
       //      matrix::print(dr.kalman->kalman_gain());
-      dr.update_dead_reckoning(0, 0, NO_DEBUG);
+      dr.update_dead_reckoning(0.5, 0.4, NO_DEBUG);
+      counter++;
+    }
+    /*MOVEMENT 3*/
+    for (size_t i = 0; i < 10; i++) {
+      /*Print to file output*/
+      outputfile << dr.position.x << "," << dr.position.y << "," << dr.rotation
+                 << "," << dr.kalman->x_hat_estimated_state[0][0] << ","
+                 << dr.kalman->x_hat_estimated_state[1][0] << ","
+                 << dr.kalman->x_hat_estimated_state[2][0] << ","
+                 << matrix::determinant(dr.kalman->kalman_gain()) << std::endl;
+      /*Print to cout*/
+      std::cout << counter << ") " << dr.position.x << "," << dr.position.y
+                << "," << dr.rotation << ","
+                << dr.kalman->x_hat_estimated_state[0][0] << ","
+                << dr.kalman->x_hat_estimated_state[1][0] << ","
+                << dr.kalman->x_hat_estimated_state[2][0] << ","
+                << matrix::determinant(dr.kalman->kalman_gain()) << std::endl
+                << std::endl;
+
+      //      matrix::print(dr.kalman->kalman_gain());
+      dr.update_dead_reckoning(1, 0, NO_DEBUG);
+      counter++;
+    }
+    /*MOVEMENT 2*/
+    for (size_t i = 0; i < 4; i++) {
+      /*Print to file output*/
+      outputfile << dr.position.x << "," << dr.position.y << "," << dr.rotation
+                 << "," << dr.kalman->x_hat_estimated_state[0][0] << ","
+                 << dr.kalman->x_hat_estimated_state[1][0] << ","
+                 << dr.kalman->x_hat_estimated_state[2][0] << ","
+                 << matrix::determinant(dr.kalman->kalman_gain()) << std::endl;
+      /*Print to cout*/
+      std::cout << counter << ") " << dr.position.x << "," << dr.position.y
+                << "," << dr.rotation << ","
+                << dr.kalman->x_hat_estimated_state[0][0] << ","
+                << dr.kalman->x_hat_estimated_state[1][0] << ","
+                << dr.kalman->x_hat_estimated_state[2][0] << ","
+                << matrix::determinant(dr.kalman->kalman_gain()) << std::endl
+                << std::endl;
+
+      //      matrix::print(dr.kalman->kalman_gain());
+      dr.update_dead_reckoning(0.5, -0.4, NO_DEBUG);
+      counter++;
+    }
+    /*MOVEMENT */
+    for (size_t i = 0; i < 20; i++) {
+      /*Print to file output*/
+      outputfile << dr.position.x << "," << dr.position.y << "," << dr.rotation
+                 << "," << dr.kalman->x_hat_estimated_state[0][0] << ","
+                 << dr.kalman->x_hat_estimated_state[1][0] << ","
+                 << dr.kalman->x_hat_estimated_state[2][0] << ","
+                 << matrix::determinant(dr.kalman->kalman_gain()) << std::endl;
+      /*Print to cout*/
+      std::cout << counter << ") " << dr.position.x << "," << dr.position.y
+                << "," << dr.rotation << ","
+                << dr.kalman->x_hat_estimated_state[0][0] << ","
+                << dr.kalman->x_hat_estimated_state[1][0] << ","
+                << dr.kalman->x_hat_estimated_state[2][0] << ","
+                << matrix::determinant(dr.kalman->kalman_gain()) << std::endl
+                << std::endl;
+      //      matrix::print(dr.kalman->kalman_gain());
+      dr.update_dead_reckoning(1, 0, NO_DEBUG);
       counter++;
     }
   }
+
   return 0;
 }
