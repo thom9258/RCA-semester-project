@@ -8,6 +8,9 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <bitset>
+#include <map>
+#include <iterator>
 
 /*
  * Description:     A path planning class implementation for the project
@@ -22,7 +25,8 @@
  */
 
 #define AMOUNTOFACTIONS 4
-enum OPTIONS { NONE = 0, DEBUG = 1, WAIT = 2, GREYSCALE = 3 };
+#define ROOM_AMOUNT 20
+enum OPTIONS { NONE = 0, _DEBUG = 1, WAIT = 2, GREYSCALE = 3 };
 enum POSITION { X = 0, Y = 1 };
 
 class QLearning {
@@ -44,13 +48,16 @@ public:
   // Environment -- spaces: agent can move, "+": reward, "-": punishment.
   std::vector<std::vector<int>> environment = {};
   int rows, columns;
+  int room_amount = 0;
   std::vector<std::vector<float>> V = {}; /*Current estimate of state values*/
   std::vector<std::vector<float>> R;      /*Rewards*/
   std::vector<std::vector<std::vector<float>>> Q;      /*Policy*/
+    std::map<std::bitset<ROOM_AMOUNT+7>, float> Q_Markov;
   struct state {
     int x;
     int y;
     bool is_outside_environment; //default: = false;
+    std::bitset<ROOM_AMOUNT> visited_list;
   };
   // A convenient definition of the terminal state
   const state TERMINAL_STATE = {-1, -1, true};
@@ -99,6 +106,7 @@ public:
       for (int y = 0; y < rows; y++) {
           if(environment[x][y] != '#'){
               room_locations.push_back({x,y});
+              room_amount++;
           }
       }
     }
@@ -110,6 +118,7 @@ public:
       for(size_t i = 0; i < room_locations.size();i++){
           if(x == room_locations[i][0] && y == room_locations[i][1]){
               return i;
+
           }
       }
       //This shouldnt happen, no corresponding room
@@ -170,7 +179,7 @@ public:
   /*****************************************************************************
    * GET BEST ACTION GIVEN A STATE - EPSILON GREEDY
    * **************************************************************************/
-  action get_next_action(state s) {
+  action get_next_action(state s, std::bitset<ROOM_AMOUNT> _visited_list) {
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
 
     float greedyness = (static_cast<float>(rand()) /
@@ -185,7 +194,7 @@ public:
     if(greedyness < epsilon){
         //Iterate possible actions, and find the highest Q(s,a) value
         for (size_t i = 0; i < possible_actions.size(); i++) {
-          state next = get_next_state(s, possible_actions[i]);
+          state next = get_next_state(s, possible_actions[i], _visited_list);
           if (!next.is_outside_environment) {
             float q_value = Q[s.x][s.y][i];
             if (q_value > current_max_value) {
@@ -200,6 +209,16 @@ public:
         return possible_actions[random_action];
     }
   }
+    
+    /*****************************************************************************
+     * GET BEST ACTION GIVEN A STATE - NOT! EPSILON GREEDY
+     * **************************************************************************/
+    
+    float get_q_value(int x, int y, action a, std::bitset<ROOM_AMOUNT> _visited_list)
+    {
+        
+    }
+
 
   /*****************************************************************************
    * GET BEST ACTION GIVEN A STATE - NOT! EPSILON GREEDY
