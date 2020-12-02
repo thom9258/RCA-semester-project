@@ -18,10 +18,10 @@ int main(int argc, char *argv[]) {
   bool a_star_test_full_path = false;
   bool a_star_test_back_and_forth = false;
   bool qq_plot_normal_distibution = false;
-  bool do_room_node = true;
+  bool do_room_node = false;
 
   bool do_path_planning = false;
-  bool do_localization = false;
+  bool do_localization = true;
 
   const float map_show_scalar = 0.7;
   int hammersley_node_amount = 1000;
@@ -242,18 +242,56 @@ int main(int argc, char *argv[]) {
     /**************************************************************************/
     cv::Point start_position = {0, 0};
     localization dr = localization(start_position);
-    dr.max_error = 0.0f;
-    for (size_t i = 0; i < 10; i++) {
-      matrix::print(dr.kalman->kalman_gain());
-      std::cout << "determinant: "
-                << matrix::determinant(dr.kalman->kalman_gain()) << std::endl;
-      dr.update_dead_reckoning(1, 0.2, DEBUG);
+    dr.max_error = 0.1f;
+
+    /*CSV file output*/
+    std::ofstream outputfile;
+    outputfile.open("kalman_filtering_test.csv");
+    /*
+     * dr_x , dr_y , dr_Ø , ka_x , ka_y , ka_Ø , ka_determinant
+     */
+
+    /*increase time step with angular- and rotational velocity*/
+    int counter = 0;
+    for (size_t i = 0; i < 50; i++) {
+      /*Print to file output*/
+      outputfile << dr.position.x << "," << dr.position.y << "," << dr.rotation
+                 << "," << dr.kalman->x_hat_estimated_state[0][0] << ","
+                 << dr.kalman->x_hat_estimated_state[1][0] << ","
+                 << dr.kalman->x_hat_estimated_state[2][0] << ","
+                 << matrix::determinant(dr.kalman->kalman_gain()) << std::endl;
+      /*Print to cout*/
+      std::cout << counter << ") " << dr.position.x << "," << dr.position.y
+                << "," << dr.rotation << ","
+                << dr.kalman->x_hat_estimated_state[0][0] << ","
+                << dr.kalman->x_hat_estimated_state[1][0] << ","
+                << dr.kalman->x_hat_estimated_state[2][0] << ","
+                << matrix::determinant(dr.kalman->kalman_gain()) << std::endl
+                << std::endl;
+      //      matrix::print(dr.kalman->kalman_gain());
+      dr.update_dead_reckoning(1, 0.2, NO_DEBUG);
+      counter++;
     }
-    for (size_t i = 0; i < 10; i++) {
-      matrix::print(dr.kalman->kalman_gain());
-      std::cout << "determinant: "
-                << matrix::determinant(dr.kalman->kalman_gain()) << std::endl;
-      dr.update_dead_reckoning(0, 0, DEBUG);
+    /*increase time step without angular- and rotational velocity*/
+    for (size_t i = 0; i < 50; i++) {
+      /*Print to file output*/
+      outputfile << dr.position.x << "," << dr.position.y << "," << dr.rotation
+                 << "," << dr.kalman->x_hat_estimated_state[0][0] << ","
+                 << dr.kalman->x_hat_estimated_state[1][0] << ","
+                 << dr.kalman->x_hat_estimated_state[2][0] << ","
+                 << matrix::determinant(dr.kalman->kalman_gain()) << std::endl;
+      /*Print to cout*/
+      std::cout << counter << ") " << dr.position.x << "," << dr.position.y
+                << "," << dr.rotation << ","
+                << dr.kalman->x_hat_estimated_state[0][0] << ","
+                << dr.kalman->x_hat_estimated_state[1][0] << ","
+                << dr.kalman->x_hat_estimated_state[2][0] << ","
+                << matrix::determinant(dr.kalman->kalman_gain()) << std::endl
+                << std::endl;
+
+      //      matrix::print(dr.kalman->kalman_gain());
+      dr.update_dead_reckoning(0, 0, NO_DEBUG);
+      counter++;
     }
   }
   return 0;

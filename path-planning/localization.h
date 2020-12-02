@@ -40,8 +40,8 @@ class kalman_filter {
 private:
   //  const double h_measurement_map_scalar = 1.0f;
   unsigned long long timestep = 0;
-  const float q_value = 40.0f;
-  const float r_value = 10.0f;
+  const float q_value = 10.0f;
+  const float r_value = 40.0f;
   std::vector<std::vector<double>> q_estimated_covariance = {
       {q_value, 0, 0}, {0, q_value, 0}, {0, 0, q_value}};
   std::vector<std::vector<double>> A = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
@@ -191,17 +191,17 @@ public:
  ******************************************************************************/
 class localization {
 private:
-  cv::Point2f position = {0, 0};
   float previous_velocity = 0;
   float previous_distance = 0;
   float previous_rotational_velocity = 0;
   float distance_traveled = 0;
-  float rotation = 0;
   const float MAX_ROTATION = PI;
   const float MIN_ROTATION = -PI;
   const float TOTAL_ROTATION = 2 * PI;
 
 public:
+  cv::Point2f position = {0, 0};
+  float rotation = 0;
   kalman_filter *kalman;
   float max_error = 0.0f;
 
