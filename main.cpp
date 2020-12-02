@@ -94,9 +94,10 @@ void lidarCallback(ConstLaserScanStampedPtr &msg) {
                       200.5f - range * px_per_m * std::sin(angle));
     cv::line(im, startpt * 16, endpt * 16, cv::Scalar(255, 255, 255, 255), 1,
              cv::LINE_AA, 4);
-    if (range <= closestObstacle_range) {
+    if (range <= closestObstacle_range && i > 50 && i < 150) {
       closestObstacle_range = range;
       closestObstacle_angle = angle;
+      //std::cout << " UPDATED CLOSESTOBSTACLE-----------------------" << std::endl;
     }
     //    std::cout << angle << " " << range << " " << intensity << std::endl;
   }
@@ -206,21 +207,26 @@ int main(int _argc, char **_argv) {
       //     dir *= 0.1;
     }
 
-    lc.update_dead_reckoning(speed, dir, 1);
+    //lc.update_dead_reckoning(speed, dir, 1);
 
     // ----------------- Fuzzy --------------------
     // scalar location = fl_obstacle->getMinimum() + (fl_obstacle->range() /
     // 50); fl_obstacle->setValue(location);
-    if (closestObstacle_range > 2000) {
-      closestObstacle_range = 2000;
+    if (closestObstacle_range > 10000) {
+      closestObstacle_range = 10000;
     }
     obstacle_range->setValue(closestObstacle_range);
     obstacle_angle->setValue(closestObstacle_angle);
     engine->process();
+    dir = steer->getValue();
+    std::cout << "Steer: " << steer->getValue() << "  ClosestObstacle range, angle "
+              << closestObstacle_range << " " << closestObstacle_angle << std::endl;
+    std::cout << "FL obstacle_range/angle values: " << obstacle_range->getValue() << " " <<
+                 obstacle_angle->getValue() << std::endl;
     // FL_LOG("obstacle.input = " << Op::str(location) <<
-    //    " => " << "steer.output = " << Op::str(fl_dir->getValue()));
+    //    " => " << "steer.output = " << Op::str(steer->getValue()));
 
-    //    dir = steer->getValue();
+
     //---------
 
     // Generate a pose

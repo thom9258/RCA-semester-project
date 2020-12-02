@@ -5,14 +5,14 @@ InputVariable: obstacle_range
   range: 0.000 2.000
   lock-range: false
   term: close Ramp 0.000 1.500
-  term: far_away Ramp 1.500 2.000
+  term: far_away Rectangle 1.500 10.000
 InputVariable: obstacle_angle
   enabled: true
   range: -2.500 2.500
   lock-range: false
-  term: right Ramp -2.500 -0.200
-  term: center Triangle -0.500 0.000 0.500
-  term: left Ramp 2.500 0.200
+  term: right Ramp -0.500 -2.500
+  term: center Rectangle -0.500 0.500
+  term: left Ramp 0.500 2.500
 OutputVariable: steer
   enabled: true
   range: -0.800 0.800
@@ -22,7 +22,7 @@ OutputVariable: steer
   default: nan
   lock-previous: false
   term: left Ramp -0.800 0.000
-  term: center Ramp 0.000 0.000
+  term: center Rectangle 0.000 0.000
   term: right Ramp 0.800 0.000
 RuleBlock: mamdani
   enabled: true
@@ -30,7 +30,7 @@ RuleBlock: mamdani
   disjunction: none
   implication: AlgebraicProduct
   activation: General
-  rule: if obstacle_range is far_away then steer is none
+  rule: if obstacle_range is far_away then steer is center
   rule: if obstacle_range is close and obstacle_angle is right then steer is left
   rule: if obstacle_range is close and obstacle_angle is left then steer is right
   rule: if obstacle_range is close and obstacle_angle is center then steer is right
