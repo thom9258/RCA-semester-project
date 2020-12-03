@@ -18,32 +18,35 @@ int main() {
   //      {'#', '#', '#', '#', '#', 'f', 'g', '#', '#'},
   //      {'#', '#', '#', '#', '#', '#', '#', '#', '#'}};
 
-  std::vector<std::vector<int>> char_map = {
-      {'#', '#', '#', '#', '#', '#', '#', '#', '#', '#'},
-      {'#', '#', '#', ' ', '#', '#', '#', '#', '#', '#'},
-      {'#', ' ', '#', ' ', ' ', '#', '#', '#', '#', '#'},
-      {'#', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#'},
-      {'#', '#', ' ', 's', ' ', ' ', '#', '#', '#', '#'},
-      {'#', '#', ' ', ' ', '#', ' ', 'c', ' ', '#', '#'},
-      {'#', '#', '#', ' ', '#', ' ', '#', '#', '#', '#'},
-      {'#', '#', '#', '#', '#', ' ', ' ', '#', '#', '#'},
-      {'#', '#', '#', '#', '#', '#', '#', '#', '#', '#'}};
+  std::vector<std::vector<int>> map1 = {
+      {'#', '#', '#', '#', '#', '#', '#', '#', '#'},
+      {'#', '#', '#', ' ', '#', '#', '#', '#', '#'},
+      {'#', ' ', '#', ' ', ' ', '#', '#', '#', '#'},
+      {'#', ' ', ' ', ' ', '#', '#', '#', '#', '#'},
+      {'#', '#', ' ', 's', ' ', ' ', '#', '#', '#'},
+      {'#', '#', ' ', ' ', '#', ' ', ' ', ' ', '#'},
+      {'#', '#', '#', ' ', '#', ' ', '#', '#', '#'},
+      {'#', '#', '#', '#', '#', ' ', 'c', '#', '#'},
+      {'#', '#', '#', '#', '#', '#', '#', '#', '#'}};
 
-  std::vector<std::vector<int>> test_map_1 = {{'#', '#', '#', '#', '#', '#'},
-                                              {'#', '#', ' ', '#', '#', '#'},
-                                              {'#', ' ', 's', 'c', '#', '#'},
-                                              {'#', '#', ' ', ' ', '#', '#'},
-                                              {'#', '#', '#', '#', '#', '#'}};
+  std::vector<std::vector<int>> test_map = {{'#', '#', '#', '#', '#', '#'},
+                                            {'#', '#', ' ', '#', '#', '#'},
+                                            {'#', ' ', 's', 'c', '#', '#'},
+                                            {'#', '#', ' ', ' ', '#', '#'},
+                                            {'#', '#', '#', '#', '#', '#'}};
 
-  float epsilon_value = 0.2; /*greedy value*/
-  float alpha = 0.1;         /*step size*/
+  std::vector<std::vector<std::vector<int>>> maps;
+  maps.push_back(test_map);
+  maps.push_back(map1);
+  float epsilon_value = 0.5; /*greedy value*/
+  float alpha = 1;           /*step size*/
 
-  QLearning mylearning(test_map_1, epsilon_value);
+  QLearning mylearning(maps[1], epsilon_value);
   std::cout << "PRINT ENVIROMENT" << std::endl;
   mylearning.print_environment();
   mylearning.print_rooms();
 
-  size_t iterations = 1000;
+  size_t iterations = 100000;
   // Start of the estimation loop
   std::cout << "MAIN LOOP" << std::endl;
 
@@ -51,7 +54,7 @@ int main() {
    * LEARNING Loop for each episode
    * **************************************************************************/
   for (size_t j = 0; j < iterations; j++) {
-    std::cout << "Learning Iteration " << j << "'s path: " << std::endl;
+    //    std::cout << "Learning Iteration " << j << "'s path: " << std::endl;
     // initialise S
     QLearning::state S = {mylearning.start_x, mylearning.start_y, false, 0};
 
@@ -59,7 +62,8 @@ int main() {
      * EPISODE LOOP Loop for each step of the episode
      * ************************************************************************/
     while (!S.is_outside_environment) {
-      std::cout << "room: " << mylearning.get_room_index(S.x, S.y) << std::endl;
+      //      std::cout << "room: " << mylearning.get_room_index(S.x, S.y) <<
+      //      std::endl;
       // Choose A from S using policy derived from Q (e.g. epsilon-greedy)
       QLearning::action A = mylearning.get_next_action(S);
 
@@ -91,7 +95,7 @@ int main() {
       S = S_next;
     } // until S is terminal
 
-    std::cout << std::endl;
+    //    std::cout << std::endl;
 
     /***************************************************************************
      * BEST PATH LEARNED DEBUG

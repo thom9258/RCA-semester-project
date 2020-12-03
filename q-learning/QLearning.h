@@ -19,7 +19,11 @@
  *
  * Changelog:       DDMMYY  XX        Change
  *                  311120  TH/MI/ER  Started q-learning class
- *                  011220  TH/MI/ER  Expanded q-learning class with
+ *                  011220  TH/MI/ER  Expanded q-learning class
+ *                  021220  TH/MI/ER  Expanded q-learning class with std::maps
+ *                                    (associative array)
+ *                  031220  TH/MI/ER  Fixed key for std::map fixed x,y
+ *                                    definitions
  *
  */
 
@@ -34,8 +38,8 @@ public:
   int start_x;
   int start_y;
   std::vector<std::vector<int>> environment = {};
-  int rows;    /* The amount of rows (length of a column)*/
-  int columns; /*the amount of columns (length of a row)*/
+  int rows;    /*the amount of columns (length of a row)*/
+  int columns; /* The amount of rows (length of a column)*/
   int room_amount = 0;
   std::map<std::string, float> Q_Markov = {};
   struct state {
@@ -56,8 +60,8 @@ public:
    * **************************************************************************/
   QLearning(){};
   QLearning(std::vector<std::vector<int>> _input_map, float _epsilon_value)
-      : environment(_input_map), rows(_input_map.size()),
-        columns(_input_map[0].size()), epsilon_value(_epsilon_value) {
+      : environment(_input_map), rows(_input_map[0].size()),
+        columns(_input_map.size()), epsilon_value(_epsilon_value) {
 
     /* Seed random */
     srand(time(NULL));
@@ -214,17 +218,17 @@ public:
     // (epsilon_value-greedy)
     if (greedyness > epsilon_value) {
       // Iterate possible actions, and find the highest Q(s,a) value
-      std::cout << "q: ";
+      //      std::cout << "q: ";
       for (size_t i = 0; i < possible_actions.size(); i++) {
         state next = get_next_state(s, possible_actions[i]);
         if (!next.is_outside_environment) {
           // float q_value = Q[s.x][s.y][i];
           float q_value = get_q_value(s.x, s.y, i, s.visited_list);
-          std::cout << q_value << " ";
+          //          std::cout << q_value << " ";
           if (q_value > current_max_value) {
             best_action = possible_actions[i];
             current_max_value = q_value;
-            std::cout << "%";
+            //            std::cout << "%";
           }
         }
       }
