@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <bitset>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -29,18 +30,25 @@
 
 #define AMOUNTOFACTIONS 4
 #define ROOM_AMOUNT 20
+#define MIN_FLOAT -999.99f
+#define RANDOM_MARBLES 1
 enum OPTIONS { NONE = 0, DEBUG = 1, WAIT = 2, GREYSCALE = 3 };
 enum POSITION { X = 0, Y = 1 };
 
 class QLearning {
 private:
+  std::vector<std::vector<float>> marble_map;
+  bool random_marbles;
+
 public:
   int start_x;
   int start_y;
   std::vector<std::vector<int>> environment = {};
+
   int rows;    /*the amount of columns (length of a row)*/
   int columns; /* The amount of rows (length of a column)*/
   int room_amount = 0;
+
   std::map<std::string, float> Q_Markov = {};
   struct state {
     int x;
@@ -59,9 +67,12 @@ public:
    * CONSTRUCTOR
    * **************************************************************************/
   QLearning(){};
-  QLearning(std::vector<std::vector<int>> _input_map, float _epsilon_value)
-      : environment(_input_map), rows(_input_map[0].size()),
-        columns(_input_map.size()), epsilon_value(_epsilon_value) {
+  QLearning(std::vector<std::vector<int>> _input_map,
+            std::vector<std::vector<float>> _marble_map, float _epsilon_value,
+            bool _random_marbles = false)
+      : environment(_input_map), marble_map(_marble_map),
+        rows(_input_map[0].size()), columns(_input_map.size()),
+        epsilon_value(_epsilon_value), random_marbles(_random_marbles) {
 
     /* Seed random */
     srand(time(NULL));
@@ -79,7 +90,9 @@ public:
         }
       }
     }
+    generate_random_marbles();
   }
+
   /*****************************************************************************
    * GET Q VALUE FROM MARKOV Q TABLE
    * **************************************************************************/
@@ -149,12 +162,16 @@ public:
     if (s.x < 0 || s.y < 0)
       return TERMINAL_STATE;
     if (environment[s.x][s.y] == '#' ||
-        /*environment[s.x][s.y] == 'c'*/ /*cake ||*/
+        /*environment[s.x][s.y] == 'c'*/ /*marble ||*/
             environment[s.x][s.y] == 'd' /*trap*/)
       return TERMINAL_STATE;
 
     std::bitset<ROOM_AMOUNT> new_visited_list = s.visited_list;
     new_visited_list.set(get_room_index(s.x, s.y));
+
+    if (s.visited_list.all() /*are set*/) {
+      return TERMINAL_STATE;
+    }
 
     switch (a) {
     case UP:
@@ -183,61 +200,62 @@ public:
    * GET REWARD GIVEN A STATE AND AN ACTION
    * **************************************************************************/
   float get_reward(state s, action a) {
+    if (s.visited_list.all() /*are set*/) {
+      return 1.0f;
+    }
     state next = get_next_state(s, a);
     if (next.is_outside_environment) {
-      return 0;
+      return 0.0f;
     }
-    if (environment[next.x][next.y] == 'c' /*cake*/
-        /*&& !s.visited_list[get_room_index(next.x, next.y)]*/) {
-      return 1.0;
+    if (environment[next.x][next.y] == 'c' /*marble*/
+        && !s.visited_list[get_room_index(next.x, next.y)]) {
+      return 1.0f;
     }
-    if (environment[next.x][next.y] == 'd' /*trap*/) {
-      return -1.0;
+    if (environment[next.x][next.y] == 'd' /*trap*/ ||
+        environment[next.x][next.y] == '#' /*wall*/) {
+      return -1.0f;
     }
-    if (environment[next.x][next.y] == '#' /*wall*/) {
-      return -1.0;
-    }
-    return 0;
+    return 0.0f;
   }
 
   /*****************************************************************************
    * GET NEXT ACTION GIVEN A STATE - epsilon_value GREEDY
    * **************************************************************************/
   action get_next_action(state s) {
+    float current_max_value = MIN_FLOAT; // std::numeric_limits<float>::min();
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
-
+    std::vector<action> current_best_actions = {};
     float greedyness = (static_cast<float>(rand()) /
                         (static_cast<float>(static_cast<float>(RAND_MAX))));
-
-    float current_max_value = -1; // std::numeric_limits<float>::min();
-    action best_action =
-        possible_actions[0]; // Make sure that we have a default action (not
-                             // really necessary)
 
     // Either select action with highest Q(s,a) value, or pick a random action
     // (epsilon_value-greedy)
     if (greedyness > epsilon_value) {
+
       // Iterate possible actions, and find the highest Q(s,a) value
-      //      std::cout << "q: ";
       for (size_t i = 0; i < possible_actions.size(); i++) {
         state next = get_next_state(s, possible_actions[i]);
         if (!next.is_outside_environment) {
-          // float q_value = Q[s.x][s.y][i];
           float q_value = get_q_value(s.x, s.y, i, s.visited_list);
-          //          std::cout << q_value << " ";
           if (q_value > current_max_value) {
-            best_action = possible_actions[i];
+            current_best_actions = {};
+            current_best_actions.push_back(possible_actions[i]);
             current_max_value = q_value;
-            //            std::cout << "%";
+          } else if (q_value == current_max_value) {
+            current_best_actions.push_back(possible_actions[i]);
+            current_max_value = q_value;
           }
         }
       }
-      std::cout << std::endl;
-      return best_action;
-    } else {
-      int random_action = rand() % possible_actions.size();
-      //      std::cout << "epsilon_value: " << random_action << std::endl;
-      return possible_actions[random_action];
+      if (current_best_actions.size() == 1) {
+        return current_best_actions[0];
+      }
+      if (current_best_actions.size() == 0) {
+        return possible_actions[0];
+      }
+      return current_best_actions[(rand() % current_best_actions.size())];
+    } else { /*epsilon greedy*/
+      return possible_actions[rand() % possible_actions.size()];
     }
   }
 
@@ -245,18 +263,14 @@ public:
    * GET BEST ACTION GIVEN A STATE - NOT! epsilon_value GREEDY
    * **************************************************************************/
   action get_best_action(state s, int _option = NONE) {
+    float current_max_value = MIN_FLOAT; // std::numeric_limits<float>::min();
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
-
-    float current_max_value = -1; // std::numeric_limits<float>::min();
-    action best_action =
-        possible_actions[0]; // Make sure that we have a default action (not
-                             // really necessary)
+    std::vector<action> current_best_actions = {};
 
     // Iterate possible actions, and find the highest Q(s,a) value
     for (size_t i = 0; i < possible_actions.size(); i++) {
       state next = get_next_state(s, possible_actions[i]);
       if (!next.is_outside_environment) {
-        // float q_value = Q[s.x][s.y][i];
         float q_value = get_q_value(s.x, s.y, i, s.visited_list);
 
         if (_option == DEBUG) {
@@ -264,14 +278,45 @@ public:
             std::cout << "q " << q_value << std::endl;
           }
         }
-
         if (q_value > current_max_value) {
-          best_action = possible_actions[i];
+          current_best_actions = {};
+          current_best_actions.push_back(possible_actions[i]);
+          current_max_value = q_value;
+        } else if (q_value == current_max_value) {
+          current_best_actions.push_back(possible_actions[i]);
           current_max_value = q_value;
         }
       }
     }
-    return best_action;
+    if (current_best_actions.size() == 0) {
+      return possible_actions[0];
+    }
+    if (current_best_actions.size() == 1) {
+      return current_best_actions[0];
+    }
+    return current_best_actions[(rand() % current_best_actions.size())];
+  }
+  /*****************************************************************************
+   * GENERATE RANDOM marbleS
+   * **************************************************************************/
+  void generate_random_marbles(void) {
+    if (random_marbles) {
+      for (int x = 0; x < columns; x++) {
+        for (int y = 0; y < rows; y++) {
+
+          if (environment[x][y] != '#' && environment[x][y] != 's') {
+            float marble_chance =
+                (static_cast<float>(rand()) /
+                 (static_cast<float>(static_cast<float>(RAND_MAX))));
+            if (marble_chance < marble_map[x][y]) {
+              environment[x][y] = 'c';
+            } else {
+              environment[x][y] = ' ';
+            }
+          }
+        }
+      }
+    }
   }
 
   /*****************************************************************************
@@ -305,6 +350,23 @@ public:
         } else {
           // std::cout << '#';
           printf("--");
+        }
+        std::cout << ' ';
+      }
+      std::cout << std::endl;
+    }
+  }
+  /*****************************************************************************
+   * PRINT MARBLE INDEXES
+   * **************************************************************************/
+  void print_marble_chances() {
+    for (int x = 0; x < columns; x++) {
+      for (int y = 0; y < rows; y++) {
+        float marble_room_index = marble_map[x][y];
+        if (marble_room_index != 0) {
+          printf("%2.2f", marble_room_index);
+        } else {
+          printf("----");
         }
         std::cout << ' ';
       }
