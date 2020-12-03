@@ -1,15 +1,15 @@
 #pragma once
 #include <algorithm>
+#include <bitset>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <math.h>
+#include <random>
 #include <stdexcept>
 #include <stdio.h>
 #include <string>
 #include <vector>
-#include <random>
-#include <bitset>
-#include <map>
 
 /*
  * Description:     A path planning class implementation for the project
@@ -25,48 +25,29 @@
 
 #define AMOUNTOFACTIONS 4
 #define ROOM_AMOUNT 20
-enum OPTIONS { NONE = 0, _DEBUG = 1, WAIT = 2, GREYSCALE = 3 };
+enum OPTIONS { NONE = 0, DEBUG = 1, WAIT = 2, GREYSCALE = 3 };
 enum POSITION { X = 0, Y = 1 };
 
 class QLearning {
 private:
-  /*****************************************************************************
-   * CHECK IF A POSITION IS VALID INSIDE MAP
-   * **************************************************************************/
-  int on_board(std::vector<int> next_position,
-               std::vector<std::vector<int>> _environment) {
-    if (next_position[X] < 0 || next_position[X] > columns ||
-        next_position[Y] < 0 || next_position[Y] > rows ||
-        _environment[next_position[X]][next_position[Y]] == '#') {
-      return false;
-    }
-    return true;
-  }
-
 public:
-  // Environment -- spaces: agent can move, "+": reward, "-": punishment.
+  int start_x;
+  int start_y;
   std::vector<std::vector<int>> environment = {};
-  int rows, columns;
+  int rows;    /* The amount of rows (length of a column)*/
+  int columns; /*the amount of columns (length of a row)*/
   int room_amount = 0;
-  std::vector<std::vector<float>> V = {}; /*Current estimate of state values*/
-  std::vector<std::vector<float>> R;      /*Rewards*/
-  std::vector<std::vector<std::vector<float>>> Q;      /*Policy*/
   std::map<std::string, float> Q_Markov = {};
   struct state {
     int x;
     int y;
-    bool is_outside_environment; //default: = false;
+    bool is_outside_environment; // default: = false;
     std::bitset<ROOM_AMOUNT> visited_list;
   };
-
-  //std::bitset<ROOM_AMOUNT> empty_visited_list = 0;
-  // A convenient definition of the terminal state
   const state TERMINAL_STATE = {-1, -1, true, 0};
   float discount_rate = 0.9;
-  // threshold for determining the accuracy of the estimation
-  float theta = 0.01;
-  float epsilon;
-  enum action { UP, DOWN, LEFT, RIGHT };
+  float epsilon_value;
+  enum action { UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3 };
 
   std::vector<std::vector<int>> room_locations;
 
@@ -74,30 +55,9 @@ public:
    * CONSTRUCTOR
    * **************************************************************************/
   QLearning(){};
-  QLearning(std::vector<std::vector<int>> _input_map, float _epsilon)
+  QLearning(std::vector<std::vector<int>> _input_map, float _epsilon_value)
       : environment(_input_map), rows(_input_map.size()),
-        columns(_input_map[0].size()), epsilon(_epsilon) {
-    for (int x = 0; x < columns; x++) {
-      std::vector<float> column;
-      for (int y = 0; y < rows; y++) {
-        column.push_back(0.0f);
-      }
-      V.push_back(column);
-      R.push_back(column);
-    }
-
-    /* Initialise Q matrix */
-    for (int x = 0; x < columns; x++) {
-      std::vector<std::vector<float>> column;
-      for (int y = 0; y < rows; y++) {
-          std::vector<float> row;
-          for (int z = 0; z < AMOUNTOFACTIONS; z++) {
-            row.push_back(0.0f);
-          }
-          column.push_back(row);
-      }
-      Q.push_back(column);
-    }
+        columns(_input_map[0].size()), epsilon_value(_epsilon_value) {
 
     /* Seed random */
     srand(time(NULL));
@@ -105,79 +65,77 @@ public:
     /* Index rooms */
     for (int x = 0; x < columns; x++) {
       for (int y = 0; y < rows; y++) {
-          if(environment[x][y] != '#'){
-              room_locations.push_back({x,y});
-              room_amount++;
-          }
+        if (environment[x][y] != '#') {
+          room_locations.push_back({x, y});
+          room_amount++;
+        }
+        if (environment[x][y] == 's' /*start*/) {
+          start_x = x;
+          start_y = y;
+        }
       }
     }
   }
   /*****************************************************************************
    * GET Q VALUE FROM MARKOV Q TABLE
    * **************************************************************************/
-  float get_q_value(int x, int y, action a, std::bitset<ROOM_AMOUNT> _visited_list)
-  {
-      //Generate key
-      // 2 bits for action, 5 bits for room, 20 bits from visitedlist
-      std::bitset<ROOM_AMOUNT+7> key = 0;
-      uint32_t action_bit = a;
-      action_bit  = action_bit << (ROOM_AMOUNT+5);
-      key &= action_bit;
+  float get_q_value(int x, int y, int _action,
+                    std::bitset<ROOM_AMOUNT> _visited_list) {
+    // Generate key
+    // 2 bits for action, 5 bits for room, 20 bits from visitedlist
 
-      uint32_t room_index = get_room_index(x,y);
-      room_index = room_index << ROOM_AMOUNT;
-      key &= room_index;
+    std::bitset<5> room_index(get_room_index(x, y));
+    std::bitset<2> action(_action);
+    std::bitset<ROOM_AMOUNT + 7> key(room_index.to_string() +
+                                     action.to_string() +
+                                     _visited_list.to_string());
+    //    std::cout << "key: " << key.to_string() << std::endl;
 
-      key &= _visited_list.to_ulong();
-
-      //Check if Q value exists for key, if not, initialise it to 0.0f
-      if(!Q_Markov.count(key.to_string())){
-          Q_Markov.insert( std::pair<std::string,float>(key.to_string(),0.0f) );
-      }
-      float result = Q_Markov[key.to_string()];
-
-      return result;
+    // Check if Q value exists for key, if not, initialise it to 0.0f
+    if (!Q_Markov.count(key.to_string())) {
+      Q_Markov.insert(std::pair<std::string, float>(key.to_string(), 0.0f));
+    }
+    float result = Q_Markov[key.to_string()];
+    //    if (result != 0) {
+    //      std::cout << result << std::endl;
+    //    }
+    return result;
   }
 
   /*****************************************************************************
    * SET Q VALUE IN MARKOV Q TABLE
    * **************************************************************************/
-  void set_q_value(int x, int y, action a, std::bitset<ROOM_AMOUNT> _visited_list, float _insert)
-  {
-      //Generate key
-      // 2 bits for action, 5 bits for room, 20 bits from visitedlist
-      std::bitset<ROOM_AMOUNT+7> key = 0;
-      uint32_t action_bit = a;
-      action_bit  = action_bit << (ROOM_AMOUNT+5);
-      key &= action_bit;
+  void set_q_value(int x, int y, int _action,
+                   std::bitset<ROOM_AMOUNT> _visited_list, float _insert) {
+    // Generate key
+    // 2 bits for action, 5 bits for room, 20 bits from visitedlist
+    std::bitset<5> room_index(get_room_index(x, y));
+    std::bitset<2> action(_action);
+    std::bitset<ROOM_AMOUNT + 7> key(room_index.to_string() +
+                                     action.to_string() +
+                                     _visited_list.to_string());
 
-      uint32_t room_index = get_room_index(x,y);
-      room_index = room_index << ROOM_AMOUNT;
-      key &= room_index;
-
-      key &= _visited_list.to_ulong();
-
-      //Check if Q value exists for key, if not, initialise it to 0.0f
-      if(!Q_Markov.count(key.to_string())){
-          Q_Markov.insert( std::pair<std::string,float>(key.to_string(),_insert) );
-      } else {
-          Q_Markov[key.to_string()] = _insert;
-      }
+    //    std::cout << "key: " << key.to_string() << std::endl;
+    // Check if Q value exists for key, if not, initialise it to 0.0f
+    if (!Q_Markov.count(key.to_string())) {
+      Q_Markov.insert(std::pair<std::string, float>(key.to_string(), _insert));
+    } else {
+      Q_Markov[key.to_string()] = _insert;
+    }
   }
 
   /*****************************************************************************
    * GET ROOM INDEX FROM COORDINATES
    * **************************************************************************/
-  int get_room_index(int x, int y){
-      for(size_t i = 0; i < room_locations.size();i++){
-          if(x == room_locations[i][0] && y == room_locations[i][1]){
-              return i;
-
-          }
+  int get_room_index(int x, int y) {
+    for (size_t i = 0; i < room_locations.size(); i++) {
+      if (x == room_locations[i][0] && y == room_locations[i][1]) {
+        return i;
       }
-      //This shouldnt happen, no corresponding room
-      //std::cout << "Room disaster" << std::endl;
-      return -1;
+    }
+    // This shouldnt happen, no corresponding room
+    // std::cout << "Room disaster" << std::endl;
+    return -1;
   }
 
   /*****************************************************************************
@@ -186,12 +144,13 @@ public:
   state get_next_state(state s, action a) {
     if (s.x < 0 || s.y < 0)
       return TERMINAL_STATE;
-    if (environment[s.x][s.y] == '#' || environment[s.x][s.y] == '2' /*cake*/ ||
-        environment[s.x][s.y] == 'd' /*trap*/)
+    if (environment[s.x][s.y] == '#' ||
+        /*environment[s.x][s.y] == 'c'*/ /*cake ||*/
+            environment[s.x][s.y] == 'd' /*trap*/)
       return TERMINAL_STATE;
 
     std::bitset<ROOM_AMOUNT> new_visited_list = s.visited_list;
-    new_visited_list[get_room_index(s.x,s.y)] = 1;
+    new_visited_list.set(get_room_index(s.x, s.y));
 
     switch (a) {
     case UP:
@@ -223,72 +182,85 @@ public:
     state next = get_next_state(s, a);
     if (next.is_outside_environment) {
       return 0;
-    } else {
-      if (environment[next.x][next.y] == '2' /*cake*/
-              && !s.visited_list[get_room_index(next.x,next.y)]){
-        return 1.0;
-      }
-
-
-      if (environment[next.x][next.y] == 'd' /*trap*/)
-        return -1.0;
-
-      return 0;
     }
+    if (environment[next.x][next.y] == 'c' /*cake*/
+        /*&& !s.visited_list[get_room_index(next.x, next.y)]*/) {
+      return 1.0;
+    }
+    if (environment[next.x][next.y] == 'd' /*trap*/) {
+      return -1.0;
+    }
+    if (environment[next.x][next.y] == '#' /*wall*/) {
+      return -1.0;
+    }
+    return 0;
   }
 
   /*****************************************************************************
-   * GET NEXT ACTION GIVEN A STATE - EPSILON GREEDY
+   * GET NEXT ACTION GIVEN A STATE - epsilon_value GREEDY
    * **************************************************************************/
   action get_next_action(state s) {
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
 
     float greedyness = (static_cast<float>(rand()) /
-                  (static_cast<float>(static_cast<float>(RAND_MAX))));
+                        (static_cast<float>(static_cast<float>(RAND_MAX))));
 
-    float current_max_value = -1;//std::numeric_limits<float>::min();
+    float current_max_value = -1; // std::numeric_limits<float>::min();
     action best_action =
         possible_actions[0]; // Make sure that we have a default action (not
                              // really necessary)
 
-    // Either select action with highest Q(s,a) value, or pick a random action (epsilon-greedy)
-    if(greedyness < epsilon){
-        //Iterate possible actions, and find the highest Q(s,a) value
-        for (size_t i = 0; i < possible_actions.size(); i++) {
-          state next = get_next_state(s, possible_actions[i]);
-          if (!next.is_outside_environment) {
-            //float q_value = Q[s.x][s.y][i];
-            float q_value = get_q_value(s.x, s.y, possible_actions[i], s.visited_list);
-            if (q_value > current_max_value) {
-              best_action = possible_actions[i];
-              current_max_value = q_value;
-            }
+    // Either select action with highest Q(s,a) value, or pick a random action
+    // (epsilon_value-greedy)
+    if (greedyness > epsilon_value) {
+      // Iterate possible actions, and find the highest Q(s,a) value
+      std::cout << "q: ";
+      for (size_t i = 0; i < possible_actions.size(); i++) {
+        state next = get_next_state(s, possible_actions[i]);
+        if (!next.is_outside_environment) {
+          // float q_value = Q[s.x][s.y][i];
+          float q_value = get_q_value(s.x, s.y, i, s.visited_list);
+          std::cout << q_value << " ";
+          if (q_value > current_max_value) {
+            best_action = possible_actions[i];
+            current_max_value = q_value;
+            std::cout << "%";
           }
         }
-        return best_action;
+      }
+      std::cout << std::endl;
+      return best_action;
     } else {
-        int random_action = rand() % possible_actions.size();
-        return possible_actions[random_action];
+      int random_action = rand() % possible_actions.size();
+      //      std::cout << "epsilon_value: " << random_action << std::endl;
+      return possible_actions[random_action];
     }
   }
-    
+
   /*****************************************************************************
-   * GET BEST ACTION GIVEN A STATE - NOT! EPSILON GREEDY
+   * GET BEST ACTION GIVEN A STATE - NOT! epsilon_value GREEDY
    * **************************************************************************/
-  action get_best_action(state s) {
+  action get_best_action(state s, int _option = NONE) {
     std::vector<action> possible_actions = {UP, DOWN, LEFT, RIGHT};
 
-    float current_max_value = -1;//std::numeric_limits<float>::min();
+    float current_max_value = -1; // std::numeric_limits<float>::min();
     action best_action =
         possible_actions[0]; // Make sure that we have a default action (not
                              // really necessary)
 
-    //Iterate possible actions, and find the highest Q(s,a) value
+    // Iterate possible actions, and find the highest Q(s,a) value
     for (size_t i = 0; i < possible_actions.size(); i++) {
       state next = get_next_state(s, possible_actions[i]);
       if (!next.is_outside_environment) {
-        //float q_value = Q[s.x][s.y][i];
-        float q_value = get_q_value(s.x, s.y, possible_actions[i], s.visited_list);
+        // float q_value = Q[s.x][s.y][i];
+        float q_value = get_q_value(s.x, s.y, i, s.visited_list);
+
+        if (_option == DEBUG) {
+          if (q_value != 0) {
+            std::cout << "q " << q_value << std::endl;
+          }
+        }
+
         if (q_value > current_max_value) {
           best_action = possible_actions[i];
           current_max_value = q_value;
@@ -304,7 +276,8 @@ public:
   void print_environment() {
     for (int x = 0; x < columns; x++) {
       for (int y = 0; y < rows; y++) {
-        if (environment[x][y] == '#' || environment[x][y] == 's') {
+        if (environment[x][y] == '#' || environment[x][y] == 's' ||
+            environment[x][y] == 'c') {
           std::cout << char(environment[x][y]);
         } else {
           std::cout << '-';
@@ -321,12 +294,12 @@ public:
   void print_rooms() {
     for (int x = 0; x < columns; x++) {
       for (int y = 0; y < rows; y++) {
-        int room_index = get_room_index(x,y);
+        int room_index = get_room_index(x, y);
         if (room_index != -1) {
           printf("%2.2i", room_index);
-          //std::cout << room_index;
+          // std::cout << room_index;
         } else {
-          //std::cout << '#';
+          // std::cout << '#';
           printf("--");
         }
         std::cout << ' ';
@@ -334,61 +307,4 @@ public:
       std::cout << std::endl;
     }
   }
-
-  /*****************************************************************************
-   * PRINT THE CURRENT ESTIMATE OF STATE VALUES
-   * **************************************************************************/
-  void print_state_values() {
-    for (int x = 0; x < columns; x++) {
-      for (int y = 0; y < rows; y++){
-          if(environment[x][y] != '#'){
-              printf(" %5.2f ", V[x][y]);
-          } else{
-              printf("       ");
-          }
-
-      }
-      printf("\n");
-    }
-  }
-
-  /*****************************************************************************
-   * PRINT POLICY
-   * **************************************************************************/
-//  void print_policy() {
-//    std::cout << "Print policy:" << std::endl;
-//    for (int y = 0; y < rows; y++) {
-//      for (int x = 0; x < columns; x++) {
-//        if (environment[y][x] != '#' && environment[y][x] != 'd' &&
-//            environment[y][x] != '2') {
-//          action a = get_best_action((state){
-//              x,
-//              y,
-//          });
-
-//          switch (a) {
-//          case UP:
-//            printf("  UP   ");
-//            break;
-//          case DOWN:
-//            printf(" DOWN  ");
-//            break;
-//          case LEFT:
-//            printf(" LEFT  ");
-//            break;
-//          case RIGHT:
-//            printf(" RIGHT ");
-//            break;
-//          default:
-//            printf(" UNKNOWN ACTION! ");
-//            /*FALLTHROUGH*/
-//          }
-//        } else {
-//          printf("   %c   ", environment[y][x]);
-//        }
-//      }
-
-//      printf("\n");
-//    }
-//  }
 };
