@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <bitset>
+#include <cstddef>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -35,18 +36,16 @@
 enum OPTIONS { NONE = 0, DEBUG = 1, WAIT = 2, GREYSCALE = 3 };
 enum POSITION { X = 0, Y = 1 };
 
-class QLearning {
+class q_learning {
 private:
-  std::vector<std::vector<float>> marble_map;
-  bool random_marbles;
-
 public:
   int start_x;
   int start_y;
   std::vector<std::vector<int>> environment = {};
+  std::vector<std::vector<float>> marble_map;
 
-  int rows;    /*the amount of columns (length of a row)*/
-  int columns; /* The amount of rows (length of a column)*/
+  int rows;    /*The amount of columns (length of a row)*/
+  int columns; /*The amount of rows (length of a column)*/
   int room_amount = 0;
 
   std::map<std::string, float> Q_Markov = {};
@@ -59,17 +58,19 @@ public:
   const state TERMINAL_STATE = {-1, -1, true, 0};
   float discount_rate = 0.9;
   float epsilon_value;
+  bool random_marbles;
   enum action { UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3 };
 
   std::vector<std::vector<int>> room_locations;
+  std::vector<int> marble_locations;
 
   /*****************************************************************************
    * CONSTRUCTOR
    * **************************************************************************/
-  QLearning(){};
-  QLearning(std::vector<std::vector<int>> _input_map,
-            std::vector<std::vector<float>> _marble_map, float _epsilon_value,
-            bool _random_marbles = false)
+  q_learning(){};
+  q_learning(std::vector<std::vector<int>> _input_map,
+             std::vector<std::vector<float>> _marble_map, float _epsilon_value,
+             bool _random_marbles = false)
       : environment(_input_map), marble_map(_marble_map),
         rows(_input_map[0].size()), columns(_input_map.size()),
         epsilon_value(_epsilon_value), random_marbles(_random_marbles) {
@@ -90,7 +91,9 @@ public:
         }
       }
     }
-    generate_random_marbles();
+    if (random_marbles == RANDOM_MARBLES) {
+      generate_random_marbles();
+    }
   }
 
   /*****************************************************************************
@@ -310,6 +313,7 @@ public:
                  (static_cast<float>(static_cast<float>(RAND_MAX))));
             if (marble_chance < marble_map[x][y]) {
               environment[x][y] = 'c';
+              marble_locations.push_back(get_room_index(x, y));
             } else {
               environment[x][y] = ' ';
             }
@@ -372,5 +376,85 @@ public:
       }
       std::cout << std::endl;
     }
+  }
+
+  /*****************************************************************************
+   * PRINT BEST PATH LEARNED
+   * **************************************************************************/
+  void print_learned_path(int _time_to_live = 100) {
+    q_learning::state Stest = {start_x, start_y, false, 0};
+    while (!Stest.is_outside_environment && _time_to_live > 0) {
+      std::cout << get_room_index(Stest.x, Stest.y) << " ";
+      q_learning::action Atest = get_best_action(Stest);
+      q_learning::state Stest_next = get_next_state(Stest, Atest);
+      Stest = Stest_next;
+      _time_to_live--;
+    }
+    std::cout << std::endl;
+  }
+  /*****************************************************************************
+   * RETURN BEST PATH LEARNED
+   * **************************************************************************/
+  std::vector<int> return_learned_path(int _time_to_live = 100) {
+    q_learning::state Stest = {start_x, start_y, false, 0};
+    std::vector<int> pathing = {};
+    while (!Stest.is_outside_environment && _time_to_live > 0) {
+      q_learning::action Atest = get_best_action(Stest);
+      q_learning::state Stest_next = get_next_state(Stest, Atest);
+      pathing.push_back(get_room_index(Stest.x, Stest.y));
+      Stest = Stest_next;
+      _time_to_live--;
+    }
+    return pathing;
+  }
+
+  /*****************************************************************************
+   * CHECK IF 2 VECTORS ARE COMPARABLE
+   * **************************************************************************/
+  static bool is_vector_comparable(std::vector<int> s1, std::vector<int> s2) {
+    if (s1.size() != s2.size()) {
+      return false;
+    }
+    for (size_t i = 0; i < s2.size(); i++) {
+      if (s1[i] != s2[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /*****************************************************************************
+   * CHECK IF CONTENT OF ONE VECTOR IS CONTAINED INSIDE ANOTHER
+   * **************************************************************************/
+  static bool is_vector_contained_inside(std::vector<int> _test_vector,
+                                         std::vector<int> _refrence_vector,
+                                         int _option = 0) {
+
+    if (_option) {
+
+      std::cout << "size: " << _test_vector.size() << std::endl;
+      for (size_t i = 0; i < _test_vector.size(); i++) {
+        std::cout << _test_vector[i] << " " << std::endl;
+      }
+      std::cout << std::endl;
+    }
+    size_t contains = 0;
+    for (size_t i = 0; i < _refrence_vector.size(); i++) {
+      for (size_t j = 0; j < _test_vector.size(); j++) {
+        if (_refrence_vector[i] == _test_vector[j]) {
+          contains++;
+        }
+      }
+    }
+    if (contains == _refrence_vector.size()) {
+      if (_option) {
+        std::cout << "contained inside is true!" << std::endl;
+      }
+      return true;
+    }
+    if (_option) {
+      std::cout << "contained inside NOT true!" << std::endl;
+    }
+    return false;
   }
 };
