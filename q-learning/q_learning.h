@@ -62,7 +62,7 @@ public:
   enum action { UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3 };
 
   std::vector<std::vector<int>> room_locations;
-  std::vector<int> marble_locations;
+  std::vector<int> marble_locations = {};
 
   /*****************************************************************************
    * CONSTRUCTOR
@@ -91,7 +91,8 @@ public:
         }
       }
     }
-    if (random_marbles == RANDOM_MARBLES) {
+    if (random_marbles) {
+      //      std::cout << "RANDOM MARBLES ARE TRUE" << std::endl;
       generate_random_marbles();
     }
   }
@@ -303,21 +304,31 @@ public:
    * GENERATE RANDOM marbleS
    * **************************************************************************/
   void generate_random_marbles(void) {
-    if (random_marbles) {
-      for (int x = 0; x < columns; x++) {
-        for (int y = 0; y < rows; y++) {
 
-          if (environment[x][y] != '#' && environment[x][y] != 's') {
-            float marble_chance =
-                (static_cast<float>(rand()) /
-                 (static_cast<float>(static_cast<float>(RAND_MAX))));
-            if (marble_chance < marble_map[x][y]) {
-              environment[x][y] = 'c';
-              marble_locations.push_back(get_room_index(x, y));
-            } else {
-              environment[x][y] = ' ';
-            }
+    for (int x = 0; x < columns; x++) {
+      for (int y = 0; y < rows; y++) {
+
+        if (environment[x][y] != '#' && environment[x][y] != 's') {
+          float marble_chance =
+              (static_cast<float>(rand()) /
+               (static_cast<float>(static_cast<float>(RAND_MAX))));
+          if (marble_chance < marble_map[x][y]) {
+            environment[x][y] = 'c';
+            //            marble_locations.push_back(get_room_index(x, y));
+            //            std::cout << "PLACED MARBLE AT" <<
+            //            marble_locations.back()
+            //                      << std::endl;
+          } else {
+            environment[x][y] = ' ';
           }
+        }
+      }
+    }
+
+    for (int x = 0; x < columns; x++) {
+      for (int y = 0; y < rows; y++) {
+        if (environment[x][y] == 'c') {
+          marble_locations.push_back(get_room_index(x, y));
         }
       }
     }
@@ -326,7 +337,7 @@ public:
   /*****************************************************************************
    * PRINT THE ENVIRONMENT
    * **************************************************************************/
-  void print_environment() {
+  void print_environment(int _option = 0) {
     for (int x = 0; x < columns; x++) {
       for (int y = 0; y < rows; y++) {
         if (environment[x][y] == '#' || environment[x][y] == 's' ||
@@ -338,6 +349,12 @@ public:
         std::cout << ' ';
       }
       std::cout << std::endl;
+    }
+    if (_option) {
+      std::cout << "marbles: ";
+      for (size_t i = 0; i < marble_locations.size(); i++) {
+        std::cout << marble_locations[i] << " " << std::endl;
+      }
     }
   }
 
@@ -430,31 +447,37 @@ public:
                                          std::vector<int> _refrence_vector,
                                          int _option = 0) {
 
-    if (_option) {
-
-      std::cout << "size: " << _test_vector.size() << std::endl;
+    if (/*_option*/ 0) {
+      std::cout << "compares: ";
       for (size_t i = 0; i < _test_vector.size(); i++) {
-        std::cout << _test_vector[i] << " " << std::endl;
+        std::cout << _test_vector[i] << " ";
       }
-      std::cout << std::endl;
+      std::cout << "with: ";
+      for (size_t i = 0; i < _refrence_vector.size(); i++) {
+        std::cout << _test_vector[i] << " ";
+      }
     }
     size_t contains = 0;
     for (size_t i = 0; i < _refrence_vector.size(); i++) {
       for (size_t j = 0; j < _test_vector.size(); j++) {
         if (_refrence_vector[i] == _test_vector[j]) {
           contains++;
+          break;
         }
       }
     }
+    //    std::cout << "contains: " << contains
+    //              << " should be: " << _refrence_vector.size() <<
+    //              std::endl;
     if (contains == _refrence_vector.size()) {
       if (_option) {
-        std::cout << "contained inside is true!" << std::endl;
+        //        std::cout << "true!" << std::endl;
       }
       return true;
     }
-    if (_option) {
-      std::cout << "contained inside NOT true!" << std::endl;
-    }
+    //    if (_option) {
+    //      std::cout << "false!" << std::endl;
+    //    }
     return false;
   }
 };

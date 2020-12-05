@@ -69,7 +69,7 @@ int main() {
 
     for (int i = 0; i < MAX_TEST_ITERATIONS; i++) {
       q_learning q_learner(test_map, marble_map, epsilon_value);
-      q_learner.print_environment();
+      q_learner.print_environment(1);
       q_learner.print_rooms();
       //      q_learner.print_marble_chances();
       /*
@@ -247,19 +247,23 @@ int main() {
         {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.01f, 0.9f, 0.0f, 0.0f},
         {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}};
 
-    int iterations = 1000;
-    float epsilon_value = 0.01f; /*greedy value*/
-    float alpha = 0.01f;         /*step size*/
-    int time_to_live = 100;
+    std::vector<int> all_rooms = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+                                  10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
+    int iterations = 10000;
+    float epsilon_value = 1.0f; /*greedy value*/
+    float alpha = 1.0f;         /*step size*/
+    int time_to_live = 1000;
     std::ofstream output;
     output.open("epsilon_alpha_iterations_random_marbles.csv");
 
-    while (epsilon_value <= 1.0f) {
-      while (alpha <= 1.0f) {
-        q_learning q_learner(test_map, marble_map, epsilon_value,
-                             RANDOM_MARBLES);
-        q_learner.print_environment();
+    for (; epsilon_value <= 100.0f; epsilon_value = epsilon_value + 1.0f) {
+      for (; alpha <= 100.0f; alpha = alpha + 1.0f) {
 
+        q_learning q_learner(room_map, marble_map, epsilon_value / 100,
+                             RANDOM_MARBLES);
+        //        q_learner.generate_random_marbles();
+        //        std::cout << "NEW ENVIROMENT ---------------------" <<
+        //        std::endl; q_learner.print_environment();
         /*
          * LEARNING LOOP FOR EACH EPISODE
          * */
@@ -286,18 +290,20 @@ int main() {
             if (!S_next.is_outside_environment) {
               float updated_q_value =
                   q_learner.get_q_value(S.x, S.y, A, S.visited_list) +
-                  alpha * (R +
-                           q_learner.discount_rate *
-                               q_learner.get_q_value(S_next.x, S_next.y, a_max,
-                                                     S_next.visited_list) -
-                           q_learner.get_q_value(S.x, S.y, A, S.visited_list));
+                  (alpha / 100) *
+                      (R +
+                       q_learner.discount_rate *
+                           q_learner.get_q_value(S_next.x, S_next.y, a_max,
+                                                 S_next.visited_list) -
+                       q_learner.get_q_value(S.x, S.y, A, S.visited_list));
               q_learner.set_q_value(S.x, S.y, A, S.visited_list,
                                     updated_q_value);
             } else {
               float updated_q_value =
                   q_learner.get_q_value(S.x, S.y, A, S.visited_list) +
-                  alpha * (R + 0 -
-                           q_learner.get_q_value(S.x, S.y, A, S.visited_list));
+                  (alpha / 100) *
+                      (R + 0 -
+                       q_learner.get_q_value(S.x, S.y, A, S.visited_list));
               q_learner.set_q_value(S.x, S.y, A, S.visited_list,
                                     updated_q_value);
             }
@@ -310,19 +316,27 @@ int main() {
           std::vector<int> learned_path =
               q_learner.return_learned_path(time_to_live);
 
-          if (q_learning::is_vector_contained_inside(q_learner.marble_locations,
-                                                     learned_path, 1)) {
-            std::cout << "COMPLETED" << std::endl;
-            std::cout << epsilon_value << "," << alpha << "," << j << std::endl;
-            output << epsilon_value << "," << alpha << "," << j << std::endl;
-            //            break;
+          if (j == iterations - 1) {
+            std::cout << "DATA: " << epsilon_value / 100 << "," << alpha / 100
+                      << "," << -1 << std::endl;
+            //            output << epsilon_value / 100 << "," << alpha / 100 <<
+            //            "," << -1
+            //                   << std::endl;
+            break;
+          } else if (q_learning::is_vector_contained_inside(learned_path,
+                                                            all_rooms, 1)) {
+            std::cout << "DATA: " << epsilon_value / 100 << "," << alpha / 100
+                      << "," << j << std::endl;
+            output << epsilon_value / 100 << "," << alpha / 100 << "," << j
+                   << std::endl;
+            break;
           }
-          epsilon_value += 0.01;
-          alpha += 0.01;
+          q_learner.generate_random_marbles();
         }
-      }
-    }
-
+      } /*For alpha end*/
+      alpha = 1.0f;
+    } /*For epsilon end*/
+    std::cout << "DONE" << std::endl;
     output.close();
   }
   /*****************************************************************************
