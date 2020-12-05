@@ -445,9 +445,10 @@ public:
    * **************************************************************************/
   static bool is_vector_contained_inside(std::vector<int> _test_vector,
                                          std::vector<int> _refrence_vector,
-                                         int _option = 0) {
+                                         int _option = NONE) {
 
-    if (/*_option*/ 0) {
+    size_t contains = 0;
+    if (_option == DEBUG) {
       std::cout << "compares: ";
       for (size_t i = 0; i < _test_vector.size(); i++) {
         std::cout << _test_vector[i] << " ";
@@ -457,7 +458,6 @@ public:
         std::cout << _test_vector[i] << " ";
       }
     }
-    size_t contains = 0;
     for (size_t i = 0; i < _refrence_vector.size(); i++) {
       for (size_t j = 0; j < _test_vector.size(); j++) {
         if (_refrence_vector[i] == _test_vector[j]) {
@@ -466,18 +466,13 @@ public:
         }
       }
     }
-    //    std::cout << "contains: " << contains
-    //              << " should be: " << _refrence_vector.size() <<
-    //              std::endl;
     if (contains == _refrence_vector.size()) {
-      if (_option) {
-        //        std::cout << "true!" << std::endl;
+      if (_option == DEBUG) {
+        std::cout << "contains: " << contains << " result is true!"
+                  << std::endl;
       }
       return true;
     }
-    //    if (_option) {
-    //      std::cout << "false!" << std::endl;
-    //    }
     return false;
   }
 };
